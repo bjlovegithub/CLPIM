@@ -1,0 +1,11 @@
+CLPIM.exe : CLPIM.cpp Task.h ConfManager.o utility.o Log.o
+	g++ -o CLPIM CLPIM.cpp ConfManager.o utility.o Log.o
+
+ConfManager.o : ConfManager.h ConfManager.cpp
+	g++ -c ConfManager.cpp
+
+utility.o : utility.h utility.cpp
+	g++ -c utility.cpp
+
+Log.o : Log.h Log.cpp
+	g++ -c Log.cpp

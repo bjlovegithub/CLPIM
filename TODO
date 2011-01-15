@@ -1,0 +1,2 @@
+TODOs:
+1. Add async-write supporting for Log module(add writing thread).

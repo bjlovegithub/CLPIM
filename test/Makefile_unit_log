@@ -1,0 +1,10 @@
+CC = g++
+
+a.exe : Log.o unit_log_assistant.o unit_log.cpp
+	$(CC) unit_log.cpp Log.o unit_log_assistant.o
+
+unit_log_assistant.o : unit_log_assistant.cpp Log.o
+	$(CC) -c unit_log_assistant.cpp
+
+Log.o : Log.cpp Log.h calendar.h
+	$(CC) -c Log.cpp

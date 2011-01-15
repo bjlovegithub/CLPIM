@@ -1,0 +1,21 @@
+Jan/10/2011
+1. Fix compile error in ut_tool.h.
+2. Fix bugs from BPTree insert related functions.
+Jan/11/2011
+1. Fix UT failure for BTree: GetNodeTest, OpenTest
+2. Modify Logger, beautify ouput.
+3. Fix bugs in BTreeInsertTest and BTree::Insert related functions.
+Jan/12/2011
+1. Fix UT failure for BTree Insert related codes.
+2. Add most used node cache in BTreeNodeCacheManager, UT not ready.
+Jan/14/2011
+1. Fix UT failure in HashTable.
+Jan/15/2011
+1. Update latest used node in BTreeNodeCacheManager and its UT.
+
+
+TODO:
+1. Modify UT to test all key number in BPTree.
+2. Add Roll back related code for insert error.(And its UT)
+3. Add write modified node back to file operation code and UT.
+4. Test memory usage and leakage.

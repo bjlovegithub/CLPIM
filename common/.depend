@@ -1,0 +1,11 @@
+ConfManager.o: ConfManager.cpp ConfManager.h GlobalDef.h Log.h calendar.h
+Exceptions.o: Exceptions.cpp Exceptions.h
+FileUtil.o: FileUtil.cpp FileUtil.h Log.h calendar.h GlobalDef.h \
+  Exceptions.h
+GlobalDef.o: GlobalDef.cpp GlobalDef.h FileUtil.h
+Log.o: Log.cpp Log.h calendar.h GlobalDef.h
+Random.o: Random.cpp Random.h CommonInclude.h
+Time.o: Time.cpp Time.h CommonInclude.h
+Unicode.o: Unicode.cpp Unicode.h Log.h calendar.h GlobalDef.h
+utility.o: utility.cpp utility.h Log.h calendar.h GlobalDef.h \
+  CommonInclude.h

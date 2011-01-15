@@ -1,0 +1,238 @@
+Index: XiaoDB/BTree.cpp
+===================================================================
+--- XiaoDB/BTree.cpp	（版本 101）
++++ XiaoDB/BTree.cpp	（工作副本）
+@@ -136,7 +136,7 @@
+ 
+     /// begin search from root
+     BTreeNode *rootPtr = mRootPtr;
+-    RecursiveInsert(mRootPtr);
++    /// RecursiveInsert(mRootPtr);
+     /// TODO
+ }
+ 
+@@ -399,7 +399,7 @@
+     if (currNodePtr->mLeafFlag) {
+         if (currNodePtr->mKeyNum < MAX_ELEMENT_NUMBER) {
+             
+-            BSTInsertNode(currNodePtr->mRoot, );
++            //BSTInsertNode(currNodePtr->mRoot, );
+         }
+     }
+ }
+Index: XiaoDB/BTree.h
+===================================================================
+--- XiaoDB/BTree.h	（版本 101）
++++ XiaoDB/BTree.h	（工作副本）
+@@ -190,7 +190,8 @@
+      * @param
+      * @return 
+      */
+-    bool RecursiveInsert(unsigned char *key, PointerType val);
++    bool RecursiveInsert(unsigned char *key, PointerType val,
++                         BTreeNode *currNodePtr);
+     
+ private:
+     /// All nodes in B+ tree are kept in a file. Each block's size is
+Index: common/test/UtilityTest.cpp
+===================================================================
+--- common/test/UtilityTest.cpp	（版本 101）
++++ common/test/UtilityTest.cpp	（工作副本）
+@@ -1,2 +1,68 @@
+ #include "utility.h"
++#include "ut_tools/ut_tool.h"
+ 
++#include <string>
++
++using namespace std;
++using namespace CLPIM;
++
++bool ReverseStrTest(void)
++{
++    string str = "";
++    ReverseStr(str);
++    TEST_EQUAL(str, "");
++
++    str = "ab";
++    ReverseStr(str);
++    TEST_EQUAL(str, "ba");
++
++    str = "billjeff";
++    ReverseStr(str);
++    TEST_EQUAL(str, "ffejllib");
++
++    return true;
++}
++ADD_CASE(ReverseStrTest);
++
++bool CheckEndianTest(void)
++{
++    int8_t re = CheckEndian();
++    cout << (re == 1 ? "BigEndian" : (re == 0 ? "Little" : "Unkown")) << endl;
++    return true;
++}
++ADD_CASE(CheckEndianTest);
++
++bool Binary2Uint64Test(void)
++{
++    int8_t endian = CheckEndian();
++    if (-1 == endian) {
++        cout << "Unkown Endian" << endl;
++        return true;
++    }
++    uint8_t ui8 = 100;
++    uint64_t re;
++    string str = UInt2Binary(ui8, endian);
++    TEST_EQUAL_ARR(str, string("\144"))
++    cout << str << endl;
++    re = Binary2Uint64(str);
++    TEST_EQUAL(re, 100);
++
++    uint32_t ui32 = 1000000;
++    str = UInt2Binary(ui32, endian);
++    cout << str << endl;
++    TEST_EQUAL_ARR(str, string("\100\102\017\0"));
++    re = Binary2Uint64(str);
++    TEST_EQUAL(re, 1000000);
++
++    uint64_t ui64 = 10000000;
++    str = UInt2Binary(ui64, endian);
++    re = Binary2Uint64(str);
++    TEST_EQUAL(re, 10000000);
++    
++    return true;
++}
++ADD_CASE(Binary2Uint64Test);
++
++
++REGISTER_UT(UtilityTest);
++
+Index: common/utility.cpp
+===================================================================
+--- common/utility.cpp	（版本 101）
++++ common/utility.cpp	（工作副本）
+@@ -21,14 +21,13 @@
+ #include <string>
+ 
+ using namespace std;
+-using namespace CLPIM;
+ 
+ const int MAX_NAME_LENGTH = 256 ;
+ const char MSG_CREATE_NEW[] = " is not existed, create a new one instead!" ;
+ const char MSG_ERROR[] = "Fetal Error! Exit CL-PIM. Cannot create file: " ; 
+ 
+ // Implementation fo OpenFile
+-FILE * OpenFile( const char *name, const char *mode )
++FILE * CLPIM::OpenFile( const char *name, const char *mode )
+ {
+     int name_len = 0 ;
+     // check the legitimation of file name.
+@@ -82,7 +81,7 @@
+     return f ;
+ }
+ 
+-bool CloseFile( FILE *file )
++bool CLPIM::CloseFile( FILE *file )
+ {
+     if ( !file )  return false ;
+     	
+@@ -94,7 +93,7 @@
+     return false ;
+ }
+ 
+-int8_t CheckEndian()
++int8_t CLPIM::CheckEndian()
+ {
+     uint32_t val = 0x01020304;
+     uint8_t *ptr = (uint8_t*)&val;
+@@ -106,8 +105,10 @@
+     return -1;
+ }
+ 
+-void ReverseStr(string &str)
++void CLPIM::ReverseStr(string &str)
+ {
++    if (str.size() < 2)
++        return;
+     size_t start = 0, end = str.size()-1;
+     while (start < end) {
+         swap(str[start], str[end]);
+@@ -116,7 +117,7 @@
+     }
+ }
+ 
+-uint64_t Binary2Uint64(string &str)
++uint64_t CLPIM::Binary2Uint64(string &str)
+ {
+     uint64_t val = 0;
+     uint64_t exp = 1;
+Index: common/utility.h
+===================================================================
+--- common/utility.h	（版本 101）
++++ common/utility.h	（工作副本）
+@@ -51,7 +51,7 @@
+     {
+         string re(sizeof(i), char(0));
+         int8_t c = 0;
+-        const uint8_t Div = 0xFF;
++        const uint32_t Div = 0x0100;
+         while (i) {
+             re[c] = char(i % Div);
+             i /= Div;
+Index: common/ut_tools/ut_tool.h
+===================================================================
+--- common/ut_tools/ut_tool.h	（版本 87）
++++ common/ut_tools/ut_tool.h	（工作副本）
+@@ -78,6 +78,52 @@
+         }                                                               \
+     } while(0);
+ 
++template <class T>
++bool TestArrayEquality(const T &from, const T &to)
++{
++    /// If this template is used, it means currently do not support
++    /// the array type, and it will cause compile error.
++    int stub[0];
++
++    return false;
++}
++
++template <>
++bool TestArrayEquality(const std::string &from, const std::string &to)
++{
++    if (from.length() != to.length())
++        return false;
++    for (size_t i = 0; i < from.length(); ++i)
++        if (from[i] != to[i])
++            return false;
++    return true;
++}
++
++/// TODO - Add more cases
++
++template <class T>
++bool TestArrayEquality(const T *from, const T *to)
++{
++    size_t len1, len2;
++    len1 = sizeof(from);
++    len2 = sizeof(to);
++
++    if (len1 != len2)
++        return false;
++
++    for (size_t i = 0; i < len1; ++i)
++        if (from[i] != to[i])
++            return false;
++
++    return true;
++}
++
++#define TEST_EQUAL_ARR(from, to)                \
++    do {                                        \
++        bool ret = TestArrayEquality(from, to); \
++        return ret;                             \
++    } while(0);                                 
++
+ #define TEST_TRUE(val)                                                  \
+     do {                                                                \
+         if (!(val)){                                                    \

@@ -1,0 +1,8 @@
+a.exe : ConfManager.o unit_confmanager.cpp log.o
+	g++ -g unit_confmanager.cpp ConfManager.o log.o
+
+ConfManager.o : ConfManager.h ConfManager.cpp log.o
+	g++ -c ConfManager.cpp 
+
+log.o : Log.h Log.cpp
+	g++ -c Log.cpp
