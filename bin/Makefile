@@ -1,5 +1,5 @@
-LIBS = -L$(CLPIM_LIB) -lclpim -ldl
-INCLUDE = -I$(CLPIM_COMMON) -I$(CLPIM_INCLUDE)
+LIBS += -L$(CLPIM_LIB) -lclpim -ldl
+INCLUDE += -I$(CLPIM_COMMON) -I$(CLPIM_INCLUDE)
 CXXFLAGS += $(INCLUDE)
 
 clpim: CLPIM.o
@@ -11,4 +11,4 @@ clpim: CLPIM.o
 sinclude .depend
 
 clean:
-	rm -f *.o CLPIM .depend
+	rm -f *.o clpim .depend

@@ -40,6 +40,7 @@ clean:
 	$(MAKE) -C $(CLPIM_BASE)/lib clean
 	$(MAKE) -C plugins/RSSReader clean
 	$(MAKE) -C XiaoDB clean
+	$(MAKE) -C bin clean
 
 tests: COMMON LIB
 	$(MAKE) -C $(CLPIM_BASE)/common tests

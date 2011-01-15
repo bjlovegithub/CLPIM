@@ -12,6 +12,7 @@ Jan/14/2011
 1. Fix UT failure in HashTable.
 Jan/15/2011
 1. Update latest used node in BTreeNodeCacheManager and its UT.
+2. Update XiaoDB write BTreeNode to disk related codes.
 
 
 TODO:

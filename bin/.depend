@@ -1,9 +1,0 @@
-CLPIM.o: CLPIM.cpp /home/billjeff/clpim/clpim/include/Task.h \
-  /home/billjeff/clpim/clpim/common/ConfManager.h \
-  /home/billjeff/clpim/clpim/common/GlobalDef.h \
-  /home/billjeff/clpim/clpim/common/utility.h \
-  /home/billjeff/clpim/clpim/common/Log.h \
-  /home/billjeff/clpim/clpim/common/calendar.h \
-  /home/billjeff/clpim/clpim/common/Log.h \
-  /home/billjeff/clpim/clpim/common/GlobalDef.h \
-  /home/billjeff/clpim/clpim/common/FileUtil.h

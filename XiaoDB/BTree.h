@@ -238,8 +238,10 @@ private:
 
     /**
      * Comit the change to DB file.
+     * @param ptr Pointer to the dirty BTreeNode
+     * @return Return true if writing to disk successfully, otherwise false.
      */
-    /// TODO
+    bool WriteBTreeNodeToDisk(BTreeNode *ptr);
 
     /**
      * Rollback change to previous status when some error happened.
@@ -265,6 +267,12 @@ private:
      * to disk file.
      */
     bool FlushCache();
+
+    /**
+     * TODO
+     * Form the binary representation of BTreeNode.
+     */
+    bool BTreeNode2Bin();
     
     
 private:

@@ -264,7 +264,7 @@ bool BPlusTree::Open(const string &fileName)
         ++mCachedNodeNum;
         if (mCachedNodeNum > MAX_CACHED_NODE_NUM) {
             /// TODO
-            /// FlushCache();
+            FlushCache();
         }
     }
 
@@ -1342,3 +1342,44 @@ void BPlusTree::DumpKeyAndVal(vector<Key> &keys, vector<PointerType> &vals,
         } /// for all pointer for next nodes
     }
 }
+
+/// TODO - UT
+bool BPlusTree::FlushCache()
+{
+    LOG_DEBUG("Call FlushCache");
+    /// get to be flushed nodes
+    vector<PointerType> s;
+    s = mBTreeNodeCache.GetToFlushNodes();
+    LOG_DEBUG("# of nodes will be removed from cache: " << s.size());
+
+    size_t i = 0;
+    for (; i < s.size(); ++i) {
+        BTreeNode *ptr = mBTreeNodeCache.GetNode(s[i]);
+        if (NULL == ptr) {
+            LOG_ERROR("BTreeNode cache return a null pointer");
+        }
+        else {
+            if (ptr->mIsDirty) {
+                LOG_DEBUG("Write dirty node back to disk, id: " << 
+                          ptr->mOffsetID);
+                /// TODO - Write the dirty node back to disk
+                mBTreeNodeCache.RemoveNode(ptr->mOffsetID);
+                delete ptr;
+            }
+            else {
+                LOG_DEBUG("Remove not dirty node from cache");
+                mBTreeNodeCache.RemoveNode(ptr->mOffsetID);
+                delete ptr;
+            }
+        }
+    } /// for
+
+    return true;
+}
+
+/// TODO - UT
+bool BPlusTree::BWriteBTreeNodeToDisk(BTreeNode *ptr)
+{
+    /// seek to right file offset
+}
+
