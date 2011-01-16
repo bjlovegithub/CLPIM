@@ -50,6 +50,14 @@ BTreeNode* TreeNodeCacheManager::GetNode(PointerType id)
     return ptr;
 }
 
+vector<PointerType> TreeNodeCacheManager::GetAllCachedNodes()
+{
+    vector<PointerType> allKeys;
+    mCacher.GetAllKeys(allKeys);
+
+    return allKeys;
+}
+
 /// TODO -UT
 vector<PointerType> TreeNodeCacheManager::GetToFlushNodes()
 {

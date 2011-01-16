@@ -22,7 +22,6 @@ FileHandler::FileHandler()
 FileHandler::FileHandler(const string &fileName, int mode)
 {
     mFD = open(fileName.c_str(), mode);
-    chmod(fileName.c_str(), S_IRWXU|S_IRWXG|S_IRWXO);
     if (-1 == mFD)
     {
         stringstream ss;
@@ -31,6 +30,7 @@ FileHandler::FileHandler(const string &fileName, int mode)
         LOG_ERROR(ss.str());
         throw FileException(ss.str());
     }
+    chmod(fileName.c_str(), S_IRWXU|S_IRWXG|S_IRWXO);
     mBegin = mEnd = BUFFER_SIZE-1;
 }
 
@@ -42,7 +42,6 @@ FileHandler::~FileHandler()
 bool FileHandler::Open(const string &fileName, int mode)
 {
     mFD = open(fileName.c_str(), mode);
-    chmod(fileName.c_str(), S_IRWXU|S_IRWXG|S_IRWXO);
     if (-1 == mFD)
     {
         stringstream ss;
@@ -51,6 +50,7 @@ bool FileHandler::Open(const string &fileName, int mode)
         LOG_ERROR(ss.str());
         return false;
     }
+    chmod(fileName.c_str(), S_IRWXU|S_IRWXG|S_IRWXO);
     mBegin = mEnd = BUFFER_SIZE-1;
     return true;
 }

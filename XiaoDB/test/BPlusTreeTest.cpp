@@ -707,9 +707,58 @@ bool BPTreeInsertTest(void)
     cout << "End" << endl;
     return true;
 }
-
 ADD_CASE(BPTreeInsertTest);
 
+bool WriteBTreeNodeToDiskTest(void)
+{
+    BPlusTree t;
+    bool ret;
+    ret = t.Open("data/WriteBTreeNodeToDisk.db");
+    TEST_EQUAL(ret, true);
+
+    uchar key1[] = "key1";
+    uchar key2[] = "key2";
+    uchar key3[] = "key3";
+    uchar key4[] = "key4";
+    uchar key5[] = "key5";
+    uchar key6[] = "key6";
+    uchar key7[] = "key7";
+
+    ret = t.Insert(key5, 4, 5);
+    TEST_EQUAL(ret, true);
+    ret = t.Insert(key6, 4, 6);
+    TEST_EQUAL(ret, true);
+    ret = t.Insert(key3, 4, 3);
+    TEST_EQUAL(ret, true);
+    ret = t.Insert(key7, 4, 7);
+    TEST_EQUAL(ret, true);
+    ret = t.Insert(key1, 4, 1);
+    TEST_EQUAL(ret, true);
+    ret = t.Insert(key2, 4, 2);
+    TEST_EQUAL(ret, true);
+    ret = t.Insert(key4, 4, 4);
+    TEST_EQUAL(ret, true);
+
+    ret = t.Commit();
+    TEST_EQUAL(ret, true);
+
+    BPlusTree t2;
+    ret = t2.Open("data/WriteBTreeNodeToDisk.db");
+    TEST_EQUAL(ret, true);
+
+    vector<Key> keys;
+    vector<PointerType> vals;
+    t2.DumpTree(keys, vals);
+    string allKeys;
+    for (size_t i = 0; i < keys.size(); ++i)
+        allKeys += keys[i].ToString();
+    string dest = "key1key2key3key4key5key6key7";
+    TEST_EQUAL(allKesy, dest);
+
+    cout << "End" << endl;
+    return true;
+}
+ADD_CASE(WriteBTreeNodeToDiskTest);
 
 
 REGISTER_UT(BPlusTreeTest);

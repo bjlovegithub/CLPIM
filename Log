@@ -13,10 +13,13 @@ Jan/14/2011
 Jan/15/2011
 1. Update latest used node in BTreeNodeCacheManager and its UT.
 2. Update XiaoDB write BTreeNode to disk related codes.
-
+Jan/16/2011
+1. Update XiaoDB, WriteBTreeNode and BTree head to disk file with UTs.
+2. TODO - UT mentioned above not ALL PASS.
 
 TODO:
 1. Modify UT to test all key number in BPTree.
 2. Add Roll back related code for insert error.(And its UT)
 3. Add write modified node back to file operation code and UT.
 4. Test memory usage and leakage.
+5. Flush data to disk in mFileHandler for BPTree.

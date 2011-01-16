@@ -82,6 +82,14 @@ bool FileHandlerTest(void)
         TEST_EQUAL(content, "this");
     }
 
+    /// test check file
+    {
+        bool ret = FileUtil::CheckFile("ttttt");
+        TEST_EQUAL(ret, false);
+        ret = FileUtil::CheckFile("FileUtilTest.cpp");
+        TEST_EQUAL(ret, true);
+    }
+
     return true;
 }
 ADD_CASE(FileHandlerTest);

@@ -218,16 +218,29 @@ bool BPlusTree::Open(const string &fileName)
     }
     
     /// Open file.
+    bool needInitHead = false;
+    if (!FileUtil::CheckFile(fileName)) {
+        needInitHead = true;
+    }
     if (!mFileHandler.Open(fileName, O_RDWR))
     {
         LOG_FATAL("Open B+ tree file error");
         return false;
     }
+    if (needInitHead) {
+        mMaxKeyNum = MAX_ELEMENT_NUMBER;
+        if (!WriteBTreeHead()) {
+            return false;
+        }
+    }
 
-    if (!CheckData())
-    {
-        LOG_FATAL("Read B+ tree file header error");
-        return false;
+    /// read init data from head part of db file and check data
+    if (!needInitHead) {
+        if (!CheckData())
+        {
+            LOG_FATAL("Read B+ tree file header error");
+            return false;
+        }
     }
 
     /// init bitmap
@@ -1378,8 +1391,118 @@ bool BPlusTree::FlushCache()
 }
 
 /// TODO - UT
-bool BPlusTree::BWriteBTreeNodeToDisk(BTreeNode *ptr)
+bool BPlusTree::WriteBTreeNodeToDisk(BTreeNode *ptr)
 {
     /// seek to right file offset
+    mFileHandler.Seek(ptr->mOffsetID*BLOCK_SIZE);
+    string s;
+    BTreeNode2Bin(ptr, s);
+    if (!mFileHandler.Write(s)) {
+        LOG_ERROR("Write BTreeNode to disk error");
+        return false;
+    }
+    return true;
 }
 
+/// TODO - UT
+bool BPlusTree::WriteBTreeHead()
+{
+    string str;
+    str.reserve(BLOCK_SIZE);
+    /// write db versoin
+    str += mVersion;
+    str += KEYS_DELIMITER_STR;
+    /// write key num
+    string s = UInt2Binary(mKeyNum, mEndian);
+    str += s;
+    /// write max allowd key num
+    s = UInt2Binary(mMaxKeyNum, mEndian);
+    str += s;
+    /// write root node offset
+    s = UInt2Binary(mRootOffset, mEndian);
+    str += s;
+    /// fill unused bytes with '\0'
+    for (size_t i = str.length(); i < BLOCK_SIZE; ++i)
+        str.push_back('\0');
+
+    /// write to db file
+    mFileHandler.Seek(0);
+    if (!mFileHandler.Write(str)) {
+        LOG_ERROR("Write head info to db file error");
+        return false;
+    }
+    return true;
+}
+
+/// TODO - UT
+bool BPlusTree::BTreeNode2Bin(BTreeNode *ptr, string &str)
+{
+    /// pre-allocate block size
+    str.clear();
+    str.reserve(BLOCK_SIZE);
+    /// write # of keys
+    string s = UInt2Binary(ptr->mKeyNum, mEndian);
+    str += s;
+    /// write is leaf flag
+    int32 leaf = ptr->mLeafFlag;
+    s = UInt2Binary(leaf, mEndian);
+    str += s;
+    /// write keys
+    vector<Key> keys;
+    vector<PointerType> vals;
+    DFSKeysAndValues(ptr->mRoot, keys, vals);
+    LOG_DEBUG("# of keys: " << keys.size());
+    for (size_t i = 0; i < keys.size(); ++i) {
+        Key key = keys[i];
+        LOG_DEBUG("Write key: " << key.ToString());
+        /// write key len
+        s = UInt2Binary(key.mKeyLen, mEndian);
+        str += s;
+        /// write key
+        for (uint32 j = 0; j < key.mKeyLen; ++j)
+            s += key.mKey[j];
+        /// write offset
+        s = UInt2Binary(vals[i], mEndian);
+        str += s;
+    }
+    /// write last offset(or current leaf's next subling leaf node)
+    s = UInt2Binary(ptr->mPointer, mEndian);
+    str += s;
+    /// set the unused bytes.
+    for (size_t i = str.size(); i < BLOCK_SIZE; ++i)
+        str.push_back('\0');
+    LOG_DEBUG("Bin repr size: " << str.length());
+
+    return true;
+}
+
+
+/// TODO - UT
+bool BPlusTree::Commit()
+{
+    /// update head part
+    mFileHandler.Seek(0);
+    if (!WriteBTreeHead()) {
+        LOG_ERROR("Write db head part error");
+        return false;
+    }
+    /// write modified nodes to db file
+    vector<PointerType> allNodes =  mBTreeNodeCache.GetAllCachedNodes();
+    for (size_t i = 0; i < allNodes.size(); ++i) {
+        BTreeNode *ptr = mBTreeNodeCache.GetNode(allNodes[i]);
+        if (NULL == ptr) {
+            LOG_ERROR("BTreeNodeCache GetNode return null pointer");
+            return false;
+        }
+        if (!WriteBTreeNodeToDisk(ptr)) {
+            LOG_ERROR("Call WriteBTreeNodeToDisk error");
+            return false;
+        }
+    }
+    /// remove all cached from cache.
+    for (size_t i = 0; i < allNodes.size(); ++i) {
+        BTreeNode *ptr = mBTreeNodeCache.GetNode(allNodes[i]);
+        delete ptr;
+    }
+    retur true;
+}

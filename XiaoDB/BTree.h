@@ -74,6 +74,11 @@ public:
     void Search();
 
     /**
+     * Commit all changes of BPTree, and write data to db file.
+     */
+    bool Commit();
+
+    /**
      * Dump the whole BPTree key and values
      * @param keys All BPTree keys
      * @param vals All values
@@ -244,6 +249,12 @@ private:
     bool WriteBTreeNodeToDisk(BTreeNode *ptr);
 
     /**
+     * Write head info into db file.
+     * @return True for writing successfully, otherwise false.
+     */
+    bool WriteBTreeHead();
+
+    /**
      * Rollback change to previous status when some error happened.
      * When tree node is modified, the old tree node will be added to a
      * place. When commit failed, get the old node and write them back
@@ -269,10 +280,12 @@ private:
     bool FlushCache();
 
     /**
-     * TODO
      * Form the binary representation of BTreeNode.
+     * @param ptr Pointer to BTreeNode
+     * @param str Binary representation of BTreeNode
+     * @return True for operating successfully, false for errous.
      */
-    bool BTreeNode2Bin();
+    bool BTreeNode2Bin(BTreeNode *ptr, string &str);
     
     
 private:

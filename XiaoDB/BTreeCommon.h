@@ -30,7 +30,7 @@ typedef uint64 PointerType;
 struct Key
 {
     uchar *mKey;
-    uint8 mKeyLen;
+    uint32 mKeyLen;
 
     /**
      * Ctor

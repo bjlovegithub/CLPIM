@@ -67,6 +67,12 @@ public:
     BTreeNode* GetNode(PointerType id);
 
     /**
+     * Get all cached nodes' offset
+     * @return Return a vector of cached nodes offset.
+     */
+    std::vector<PointerType> GetAllCachedNodes();
+
+    /**
      * Get to be flushed node from cache. To flush node is old node
      * which is not in TreeNodeCacheManager's inner latest used node
      * cache.
