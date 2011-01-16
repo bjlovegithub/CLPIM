@@ -753,7 +753,7 @@ bool WriteBTreeNodeToDiskTest(void)
     for (size_t i = 0; i < keys.size(); ++i)
         allKeys += keys[i].ToString();
     string dest = "key1key2key3key4key5key6key7";
-    TEST_EQUAL(allKesy, dest);
+    TEST_EQUAL(allKeys, dest);
 
     cout << "End" << endl;
     return true;

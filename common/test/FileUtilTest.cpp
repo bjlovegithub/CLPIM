@@ -90,6 +90,13 @@ bool FileHandlerTest(void)
         TEST_EQUAL(ret, true);
     }
 
+    /// open a not-existed file
+    {
+        FileHandler fh;
+        bool ret = fh.Open("ttt", O_RDWR|O_CREAT);
+        TEST_EQUAL(ret, true);
+    }
+
     return true;
 }
 ADD_CASE(FileHandlerTest);

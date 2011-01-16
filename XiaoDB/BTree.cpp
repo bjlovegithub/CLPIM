@@ -222,7 +222,7 @@ bool BPlusTree::Open(const string &fileName)
     if (!FileUtil::CheckFile(fileName)) {
         needInitHead = true;
     }
-    if (!mFileHandler.Open(fileName, O_RDWR))
+    if (!mFileHandler.Open(fileName, O_RDWR|O_CREAT))
     {
         LOG_FATAL("Open B+ tree file error");
         return false;
@@ -1504,5 +1504,5 @@ bool BPlusTree::Commit()
         BTreeNode *ptr = mBTreeNodeCache.GetNode(allNodes[i]);
         delete ptr;
     }
-    retur true;
+    return true;
 }

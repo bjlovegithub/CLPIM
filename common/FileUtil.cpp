@@ -45,8 +45,8 @@ bool FileHandler::Open(const string &fileName, int mode)
     if (-1 == mFD)
     {
         stringstream ss;
-        ss << "Open file error, name: " << fileName
-           << " with mode: " << mode << ", errno: " << strerror(errno);
+        LOG_ERROR("Open file error, name: " << fileName
+                  << " with mode: " << mode << ", errno: " << strerror(errno));
         LOG_ERROR(ss.str());
         return false;
     }
