@@ -81,6 +81,7 @@ namespace CLPIM
     } while(0)
 
 #define LOG_DEBUG(content) LOG(content, CLPIM::Log::DEBUG)
+#define LOG_CALL() LOG(__FUNCTION__, CLPIM::Log::DEBUG)
 #define LOG_INFO(content) LOG(content, CLPIM::Log::INFO)
 #define LOG_ERROR(content) LOG(content, CLPIM::Log::ERROR)
 #define LOG_FATAL(content) LOG(content, CLPIM::Log::FATAL)
@@ -90,6 +91,7 @@ namespace CLPIM
 #else
 #define LOG(content, l)
 #define LOG_DEBUG(content)
+#define LOG_CALL()
 #define LOG_INFO(content)
 #define LOG_ERROR(content)
 #define LOG_FATAL(content)

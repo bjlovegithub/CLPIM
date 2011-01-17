@@ -28,6 +28,8 @@ using namespace CLPIM;
 #define MAX_KEY_LEN        80
 /// Maximum height of B+ tree
 #define BTREE_HEIGHT       9
+/// Maximum key number in BPTree
+#define MAX_KEY_NUM 100000000UL
 /// When BitMap in BPlusTree is not enough, it will expand it.
 /// And BITMAP_EXPAND_SIZE determines expansion size.
 #define BITMAP_EXPAND_SIZE 30000
@@ -220,6 +222,7 @@ bool BPlusTree::Open(const string &fileName)
     /// Open file.
     bool needInitHead = false;
     if (!FileUtil::CheckFile(fileName)) {
+        LOG_INFO("BPTree DB file not existed");
         needInitHead = true;
     }
     if (!mFileHandler.Open(fileName, O_RDWR|O_CREAT))
@@ -228,7 +231,7 @@ bool BPlusTree::Open(const string &fileName)
         return false;
     }
     if (needInitHead) {
-        mMaxKeyNum = MAX_ELEMENT_NUMBER;
+        mMaxKeyNum = MAX_KEY_NUM;
         if (!WriteBTreeHead()) {
             return false;
         }
@@ -261,12 +264,20 @@ bool BPlusTree::Open(const string &fileName)
         LOG_FATAL("Allocate memory error");
         return false;
     }
-
-    if (!GetNode(mRootPtr, mRootOffset))
-    {
-        LOG_ERROR("Cannot initialize root");
-        return false;
+    if (!needInitHead) {
+        if (!GetNode(mRootPtr, mRootOffset))
+        {
+            LOG_ERROR("Cannot initialize root");
+            return false;
+        }
     }
+    else {
+        mRootOffset = 1;
+        mRootPtr->mOffsetID = mRootOffset;
+        mRootPtr->mLeafFlag = true;
+        UpdateBitMap(mRootOffset, true);
+    }
+
     /// add to cache
     if (!mBTreeNodeCache.AddNode(mRootPtr, mRootOffset)) {
         LOG_ERROR(AddToCacheError);
@@ -369,6 +380,7 @@ bool BPlusTree::Insert(const uchar *key, uint32 keyLen, PointerType value)
             /// TODO - Rollback
             return false;
         }
+        mRootOffset = mRootPtr->mOffsetID;
         LOG_INFO("Dump new root: " << mRootPtr->Dump());
     }
 
@@ -1394,6 +1406,9 @@ bool BPlusTree::FlushCache()
 bool BPlusTree::WriteBTreeNodeToDisk(BTreeNode *ptr)
 {
     /// seek to right file offset
+    LOG_CALL();
+    LOG_DEBUG("BTreeNode offset: " << ptr->mOffsetID);
+
     mFileHandler.Seek(ptr->mOffsetID*BLOCK_SIZE);
     string s;
     BTreeNode2Bin(ptr, s);
@@ -1407,6 +1422,7 @@ bool BPlusTree::WriteBTreeNodeToDisk(BTreeNode *ptr)
 /// TODO - UT
 bool BPlusTree::WriteBTreeHead()
 {
+    LOG_CALL();
     string str;
     str.reserve(BLOCK_SIZE);
     /// write db versoin
@@ -1414,12 +1430,15 @@ bool BPlusTree::WriteBTreeHead()
     str += KEYS_DELIMITER_STR;
     /// write key num
     string s = UInt2Binary(mKeyNum, mEndian);
+    LOG_DEBUG("key num: " << mKeyNum << "->" << s);
     str += s;
     /// write max allowd key num
     s = UInt2Binary(mMaxKeyNum, mEndian);
+    LOG_DEBUG("max key num: " << mMaxKeyNum << "->" << s);
     str += s;
     /// write root node offset
     s = UInt2Binary(mRootOffset, mEndian);
+    LOG_DEBUG("root offset: " << s);
     str += s;
     /// fill unused bytes with '\0'
     for (size_t i = str.length(); i < BLOCK_SIZE; ++i)

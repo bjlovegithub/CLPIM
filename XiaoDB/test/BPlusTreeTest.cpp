@@ -711,6 +711,7 @@ ADD_CASE(BPTreeInsertTest);
 
 bool WriteBTreeNodeToDiskTest(void)
 {
+    LOG_DEBUG("WriteBTreeNOdeToDiskTest");
     BPlusTree t;
     bool ret;
     ret = t.Open("data/WriteBTreeNodeToDisk.db");
