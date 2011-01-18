@@ -6,6 +6,7 @@
 
 #include <sstream>
 #include <cstring>
+#include <cstdio>
 #include <algorithm>
 
 using namespace XiaoDB;
@@ -755,6 +756,8 @@ bool WriteBTreeNodeToDiskTest(void)
         allKeys += keys[i].ToString();
     string dest = "key1key2key3key4key5key6key7";
     TEST_EQUAL(allKeys, dest);
+
+    remove("data/WriteBTreeNodeToDisk.db");
 
     cout << "End" << endl;
     return true;

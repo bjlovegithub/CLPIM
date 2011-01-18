@@ -457,6 +457,8 @@ bool BPlusTree::CheckCompatibility(const string &version,
  */
 bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
 {
+    LOG_CALL();
+    LOG_DEBUG("BTreeNode offset: " << n);
     long long startPos = n*BLOCK_SIZE;
     /// TODO - Imporve performance, do not use string, allocate 8192 bytes
     /// previously instead by string's expanding(re-allocation).
@@ -476,7 +478,8 @@ bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
         LOG_ERROR("Invalid element number: " << elementNum);
         return false;
     }
-
+    LOG_DEBUG("Keys in BTreeNode: " << elementNum);
+    
     /// Get is leaf or not leaf flag.
     uint64_t leafFlag;
     {
@@ -510,6 +513,7 @@ bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
             uint32_t keyLen = 0;
             keyLen =
                 uint32_t(Binary2Uint64(nodeData.substr(pos, NUMBER_LEN).c_str()));
+            LOG_DEBUG("Key length: " << keyLen);
             if (keyLen > MAX_KEY_LEN)
             {
                 LOG_ERROR("Key length exceeds MAX KEY LEN");
@@ -528,6 +532,7 @@ bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
             memcpy(tmpPtr, nodeData.c_str()+pos, keyLen);
             bstNodePtr->mValue = tmpPtr;
             pos += keyLen;
+            LOG_DEBUG("key: " << Key(tmpPtr, keyLen).ToString());
             /// get pointer
             bstNodePtr->mPointer =
                 Binary2Uint64(nodeData.substr(pos, POINTER_LEN));
@@ -556,6 +561,8 @@ bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
     
     /// update mBitMap
     UpdateBitMap(n, true);
+
+    LOG_DEBUG("GetNode, dump BTreeNode: " << nodePtr->Dump());
 
     return true;
 }
@@ -1438,7 +1445,7 @@ bool BPlusTree::WriteBTreeHead()
     str += s;
     /// write root node offset
     s = UInt2Binary(mRootOffset, mEndian);
-    LOG_DEBUG("root offset: " << s);
+    LOG_DEBUG("root offset: " << mRootOffset << "->" << s);
     str += s;
     /// fill unused bytes with '\0'
     for (size_t i = str.length(); i < BLOCK_SIZE; ++i)
@@ -1461,6 +1468,7 @@ bool BPlusTree::BTreeNode2Bin(BTreeNode *ptr, string &str)
     str.reserve(BLOCK_SIZE);
     /// write # of keys
     string s = UInt2Binary(ptr->mKeyNum, mEndian);
+    LOG_DEBUG("key num: " << s);
     str += s;
     /// write is leaf flag
     int32 leaf = ptr->mLeafFlag;
@@ -1479,7 +1487,7 @@ bool BPlusTree::BTreeNode2Bin(BTreeNode *ptr, string &str)
         str += s;
         /// write key
         for (uint32 j = 0; j < key.mKeyLen; ++j)
-            s += key.mKey[j];
+            str += key.mKey[j];
         /// write offset
         s = UInt2Binary(vals[i], mEndian);
         str += s;
@@ -1499,6 +1507,7 @@ bool BPlusTree::BTreeNode2Bin(BTreeNode *ptr, string &str)
 /// TODO - UT
 bool BPlusTree::Commit()
 {
+    LOG_CALL();
     /// update head part
     mFileHandler.Seek(0);
     if (!WriteBTreeHead()) {

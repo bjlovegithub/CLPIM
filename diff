@@ -1,238 +1,338 @@
-Index: Log
-===================================================================
---- Log	（版本 126）
-+++ Log	（工作副本）
-@@ -8,6 +8,10 @@
- Jan/12/2011
- 1. Fix UT failure for BTree Insert related codes.
- 2. Add most used node cache in BTreeNodeCacheManager, UT not ready.
-+Jan/14/2011
-+1. Fix UT failure in HashTable.
-+Jan/15/2011
-+1. Update latest used node in BTreeNodeCacheManager and its UT.
- 
+diff --git a/Log b/Log
+index 65ee0ba..c322123 100644
+--- a/Log
++++ b/Log
+@@ -16,6 +16,8 @@ Jan/15/2011
+ Jan/16/2011
+ 1. Update XiaoDB, WriteBTreeNode and BTree head to disk file with UTs.
+ 2. TODO - UT mentioned above not ALL PASS.
++Jan/18/2011
++1. Fix UT failure for commit change to disk file.
  
  TODO:
-Index: XiaoDB/test/TreeNodeCacheManagerTest.cpp
-===================================================================
---- XiaoDB/test/TreeNodeCacheManagerTest.cpp	（版本 123）
-+++ XiaoDB/test/TreeNodeCacheManagerTest.cpp	（工作副本）
-@@ -1,6 +1,8 @@
- #include "TreeNodeCacheManager.h"
- #include "ut_tools/ut_tool.h"
- 
-+#include <algorithm>
-+
- using namespace std;
- using namespace CLPIM;
- using namespace XiaoDB;
-@@ -93,5 +95,28 @@
-     return true;
- }
- ADD_CASE(GetNodeTest);
--   
-+
-+bool GetToFlushNodesTest(void)
-+{
-+    TreeNodeCacheManager c;
-+    BTreeNode n1, n2, n3, n4, n5, n6, n7;
-+    c.AddNode(&n1, 1);
-+    c.AddNode(&n2, 2);
-+    c.AddNode(&n3, 3);
-+    c.AddNode(&n4, 4);
-+    c.AddNode(&n5, 5);
-+    c.AddNode(&n6, 6);
-+    c.AddNode(&n7, 7);
-+
-+    vector<PointerType> ret = c.GetToFlushNodes();
-+    sort(ret.begin(), ret.end());
-+
-+    TEST_EQUAL(ret.size(), 2);
-+    TEST_EQUAL(ret[0], 1);
-+    TEST_EQUAL(ret[1], 2);    
-+            
-+    return true;
-+}
-+ADD_CASE(GetToFlushNodesTest);
-+
- REGISTER_UT(TreeNodeCacheManagerUT);
-Index: XiaoDB/BTree.cpp
-===================================================================
---- XiaoDB/BTree.cpp	（版本 126）
-+++ XiaoDB/BTree.cpp	（工作副本）
-@@ -19,7 +19,11 @@
- /// Each B+ tree node takes up 8K bytes in B+ tree file.
- #define BLOCK_SIZE         8192
- /// Maximum key number in each node
-+#ifdef _DEBUG
- #define MAX_ELEMENT_NUMBER 5
-+#else
-+#define MAX_ELEMENT_NUMBER 80
-+#endif
- /// Maximum key length
- #define MAX_KEY_LEN        80
- /// Maximum height of B+ tree
-@@ -260,7 +264,7 @@
-         ++mCachedNodeNum;
-         if (mCachedNodeNum > MAX_CACHED_NODE_NUM) {
-             /// TODO
--            FlushCache();
-+            /// FlushCache();
-         }
-     }
- 
-@@ -1245,7 +1249,7 @@
-     if (0 == cmpRet) {
-         LOG_FATAL("Duplicated key founded, No duplicate key is allowed" <<
-                   " in non leaf node");
--        delete toinsertKey;
-+        delete toInsertKey;
-         return;
-     }
-     else if (1 == cmpRet) {
-Index: XiaoDB/TreeNodeCacheManager.cpp
-===================================================================
---- XiaoDB/TreeNodeCacheManager.cpp	（版本 126）
-+++ XiaoDB/TreeNodeCacheManager.cpp	（工作副本）
-@@ -51,9 +51,26 @@
- }
- 
- /// TODO -UT
--BTreeNode* TreeNodeCacheManager::GetToFlushNode()
-+vector<PointerType> TreeNodeCacheManager::GetToFlushNodes()
- {
--    /// TODO
-+    vector<PointerType> allKeys;
-+    vector<PointerType> retKeys;
-+    mCacher.GetAllKeys(allKeys);
-+
-+    typeof(allKeys.begin()) iter;
-+    for (iter = allKeys.begin(); iter != allKeys.end(); ++iter) {
-+        bool find = false;
-+        typeof(mLUNCache.begin()) it = mLUNCache.begin();
-+        for (; it != mLUNCache.end(); ++it) {
-+            if (it->id == *iter) {
-+                find = true;
-+                break;
-+            }
-+        }
-+        if (!find)
-+            retKeys.push_back(*iter);
-+    }
-+    return retKeys;
- }
- 
- /// TOOD -UT
-Index: XiaoDB/TreeNodeCacheManager.h
-===================================================================
---- XiaoDB/TreeNodeCacheManager.h	（版本 126）
-+++ XiaoDB/TreeNodeCacheManager.h	（工作副本）
-@@ -4,6 +4,7 @@
-  * 
-  * Revision History:
-  *     Nov/19/2010: Init
-+ *     Jan/14/2010: Add codes to keep latest used nodes.
+ 1. Modify UT to test all key number in BPTree.
+diff --git a/XiaoDB/BTree.cpp b/XiaoDB/BTree.cpp
+index 65c96c5..8d91a4e 100644
+--- a/XiaoDB/BTree.cpp
++++ b/XiaoDB/BTree.cpp
+@@ -457,6 +457,8 @@ bool BPlusTree::CheckCompatibility(const string &version,
   */
- 
- #ifndef BILLJEFF_TREE_NODE_CACHE_MANAGER_H
-@@ -14,6 +15,7 @@
- #include "HashTable.hpp"
- 
- #include <list>
-+#include <vector>
- 
- namespace XiaoDB
+ bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
  {
-@@ -26,7 +28,11 @@
-         BTreeNode *ptr;
-     };
++    LOG_CALL();
++    LOG_DEBUG("BTreeNode offset: " << n);
+     long long startPos = n*BLOCK_SIZE;
+     /// TODO - Imporve performance, do not use string, allocate 8192 bytes
+     /// previously instead by string's expanding(re-allocation).
+@@ -476,7 +478,8 @@ bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
+         LOG_ERROR("Invalid element number: " << elementNum);
+         return false;
+     }
+-
++    LOG_DEBUG("Keys in BTreeNode: " << elementNum);
++    
+     /// Get is leaf or not leaf flag.
+     uint64_t leafFlag;
+     {
+@@ -510,6 +513,7 @@ bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
+             uint32_t keyLen = 0;
+             keyLen =
+                 uint32_t(Binary2Uint64(nodeData.substr(pos, NUMBER_LEN).c_str()));
++            LOG_DEBUG("Key length: " << keyLen);
+             if (keyLen > MAX_KEY_LEN)
+             {
+                 LOG_ERROR("Key length exceeds MAX KEY LEN");
+@@ -528,6 +532,7 @@ bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
+             memcpy(tmpPtr, nodeData.c_str()+pos, keyLen);
+             bstNodePtr->mValue = tmpPtr;
+             pos += keyLen;
++            LOG_DEBUG("key: " << Key(tmpPtr, keyLen).ToString());
+             /// get pointer
+             bstNodePtr->mPointer =
+                 Binary2Uint64(nodeData.substr(pos, POINTER_LEN));
+@@ -557,6 +562,8 @@ bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
+     /// update mBitMap
+     UpdateBitMap(n, true);
  
--    const uint32 MaxLUNCacheSize = 500;
-+#ifdef _DEBUG
-+    static const uint32 MaxLUNCacheSize = 5;
-+#else
-+    static const uint32 MaxLUNCacheSize = 500;
-+#endif
-     
- public:
-     /**
-@@ -64,9 +70,10 @@
-      * Get to be flushed node from cache. To flush node is old node
-      * which is not in TreeNodeCacheManager's inner latest used node
-      * cache.
--     * @return Return pointer to to-flush node if existed, otherwise return NULL.
-+     * @return Return a vector of pointer to to-flush node
-+     *         if existed, otherwise return NULL.
-      */
--    BTreeNode* GetToFlushNode();
-+    std::vector<PointerType> GetToFlushNodes();
- 
- protected:
-     /**
-Index: common/test/HashTableTest.cpp
-===================================================================
---- common/test/HashTableTest.cpp	（版本 123）
-+++ common/test/HashTableTest.cpp	（工作副本）
-@@ -3,6 +3,7 @@
- #include "ut_tools/ut_tool.h"
- 
- #include <iostream>
-+#include <algorithm>
- 
- using namespace std;
- 
-@@ -90,6 +91,16 @@
-     re = h.CheckKey(17, val);
-     TEST_EQUAL(re, false);
- 
-+    string destStr = "123456766";
-+    vector<int32> ret;
-+    h.GetAllKeys(ret);
-+    sort(ret.begin(), ret.end());
-+    stringstream ss;
-+    for (size_t i = 0; i < ret.size(); ++i) {
-+        ss << ret[i];
-+    }
-+    TEST_EQUAL(ss.str(), destStr);
++    LOG_DEBUG("GetNode, dump BTreeNode: " << nodePtr->Dump());
 +
      return true;
-     
  }
-Index: common/HashTable.hpp
-===================================================================
---- common/HashTable.hpp	（版本 123）
-+++ common/HashTable.hpp	（工作副本）
-@@ -12,6 +12,7 @@
- #include <new>
- #include <cmath>
- #include <stdint.h>
-+#include <vector>
  
- #include "Log.h"
- #include "CommonInclude.h"
-@@ -157,8 +158,24 @@
-             prevPtr = ptr;
-             ptr = ptr->nextPtr;
-         }
--        
-     }
-+
-+    /**
-+     * Get all keys from hash table
-+     */
-+    void GetAllKeys(std::vector<KeyType> &ret)
-+    {
-+        ret.clear();
-+        ret.reserve(mItemNum);
-+        LOG_DEBUG("ItemNum: " << mItemNum << ", TableSize: " << mTableSize);
-+        for (uint32 i = 0; i < mTableSize; ++i) {
-+            Node *nodePtr = mTablePtr[i];
-+            while (nodePtr) {
-+                ret.push_back(nodePtr->key);
-+                nodePtr = nodePtr->nextPtr;
-+            }
-+        }
-+    }
-     
- private:
-     /**
+@@ -1438,7 +1445,7 @@ bool BPlusTree::WriteBTreeHead()
+     str += s;
+     /// write root node offset
+     s = UInt2Binary(mRootOffset, mEndian);
+-    LOG_DEBUG("root offset: " << s);
++    LOG_DEBUG("root offset: " << mRootOffset << "->" << s);
+     str += s;
+     /// fill unused bytes with '\0'
+     for (size_t i = str.length(); i < BLOCK_SIZE; ++i)
+@@ -1461,6 +1468,7 @@ bool BPlusTree::BTreeNode2Bin(BTreeNode *ptr, string &str)
+     str.reserve(BLOCK_SIZE);
+     /// write # of keys
+     string s = UInt2Binary(ptr->mKeyNum, mEndian);
++    LOG_DEBUG("key num: " << s);
+     str += s;
+     /// write is leaf flag
+     int32 leaf = ptr->mLeafFlag;
+@@ -1479,7 +1487,7 @@ bool BPlusTree::BTreeNode2Bin(BTreeNode *ptr, string &str)
+         str += s;
+         /// write key
+         for (uint32 j = 0; j < key.mKeyLen; ++j)
+-            s += key.mKey[j];
++            str += key.mKey[j];
+         /// write offset
+         s = UInt2Binary(vals[i], mEndian);
+         str += s;
+@@ -1499,6 +1507,7 @@ bool BPlusTree::BTreeNode2Bin(BTreeNode *ptr, string &str)
+ /// TODO - UT
+ bool BPlusTree::Commit()
+ {
++    LOG_CALL();
+     /// update head part
+     mFileHandler.Seek(0);
+     if (!WriteBTreeHead()) {
+diff --git a/diff b/diff
+index 44bce42..e69de29 100644
+--- a/diff
++++ b/diff
+@@ -1,238 +0,0 @@
+-Index: Log
+-===================================================================
+---- Log	（版本 126）
+-+++ Log	（工作副本）
+-@@ -8,6 +8,10 @@
+- Jan/12/2011
+- 1. Fix UT failure for BTree Insert related codes.
+- 2. Add most used node cache in BTreeNodeCacheManager, UT not ready.
+-+Jan/14/2011
+-+1. Fix UT failure in HashTable.
+-+Jan/15/2011
+-+1. Update latest used node in BTreeNodeCacheManager and its UT.
+- 
+- 
+- TODO:
+-Index: XiaoDB/test/TreeNodeCacheManagerTest.cpp
+-===================================================================
+---- XiaoDB/test/TreeNodeCacheManagerTest.cpp	（版本 123）
+-+++ XiaoDB/test/TreeNodeCacheManagerTest.cpp	（工作副本）
+-@@ -1,6 +1,8 @@
+- #include "TreeNodeCacheManager.h"
+- #include "ut_tools/ut_tool.h"
+- 
+-+#include <algorithm>
+-+
+- using namespace std;
+- using namespace CLPIM;
+- using namespace XiaoDB;
+-@@ -93,5 +95,28 @@
+-     return true;
+- }
+- ADD_CASE(GetNodeTest);
+--   
+-+
+-+bool GetToFlushNodesTest(void)
+-+{
+-+    TreeNodeCacheManager c;
+-+    BTreeNode n1, n2, n3, n4, n5, n6, n7;
+-+    c.AddNode(&n1, 1);
+-+    c.AddNode(&n2, 2);
+-+    c.AddNode(&n3, 3);
+-+    c.AddNode(&n4, 4);
+-+    c.AddNode(&n5, 5);
+-+    c.AddNode(&n6, 6);
+-+    c.AddNode(&n7, 7);
+-+
+-+    vector<PointerType> ret = c.GetToFlushNodes();
+-+    sort(ret.begin(), ret.end());
+-+
+-+    TEST_EQUAL(ret.size(), 2);
+-+    TEST_EQUAL(ret[0], 1);
+-+    TEST_EQUAL(ret[1], 2);    
+-+            
+-+    return true;
+-+}
+-+ADD_CASE(GetToFlushNodesTest);
+-+
+- REGISTER_UT(TreeNodeCacheManagerUT);
+-Index: XiaoDB/BTree.cpp
+-===================================================================
+---- XiaoDB/BTree.cpp	（版本 126）
+-+++ XiaoDB/BTree.cpp	（工作副本）
+-@@ -19,7 +19,11 @@
+- /// Each B+ tree node takes up 8K bytes in B+ tree file.
+- #define BLOCK_SIZE         8192
+- /// Maximum key number in each node
+-+#ifdef _DEBUG
+- #define MAX_ELEMENT_NUMBER 5
+-+#else
+-+#define MAX_ELEMENT_NUMBER 80
+-+#endif
+- /// Maximum key length
+- #define MAX_KEY_LEN        80
+- /// Maximum height of B+ tree
+-@@ -260,7 +264,7 @@
+-         ++mCachedNodeNum;
+-         if (mCachedNodeNum > MAX_CACHED_NODE_NUM) {
+-             /// TODO
+--            FlushCache();
+-+            /// FlushCache();
+-         }
+-     }
+- 
+-@@ -1245,7 +1249,7 @@
+-     if (0 == cmpRet) {
+-         LOG_FATAL("Duplicated key founded, No duplicate key is allowed" <<
+-                   " in non leaf node");
+--        delete toinsertKey;
+-+        delete toInsertKey;
+-         return;
+-     }
+-     else if (1 == cmpRet) {
+-Index: XiaoDB/TreeNodeCacheManager.cpp
+-===================================================================
+---- XiaoDB/TreeNodeCacheManager.cpp	（版本 126）
+-+++ XiaoDB/TreeNodeCacheManager.cpp	（工作副本）
+-@@ -51,9 +51,26 @@
+- }
+- 
+- /// TODO -UT
+--BTreeNode* TreeNodeCacheManager::GetToFlushNode()
+-+vector<PointerType> TreeNodeCacheManager::GetToFlushNodes()
+- {
+--    /// TODO
+-+    vector<PointerType> allKeys;
+-+    vector<PointerType> retKeys;
+-+    mCacher.GetAllKeys(allKeys);
+-+
+-+    typeof(allKeys.begin()) iter;
+-+    for (iter = allKeys.begin(); iter != allKeys.end(); ++iter) {
+-+        bool find = false;
+-+        typeof(mLUNCache.begin()) it = mLUNCache.begin();
+-+        for (; it != mLUNCache.end(); ++it) {
+-+            if (it->id == *iter) {
+-+                find = true;
+-+                break;
+-+            }
+-+        }
+-+        if (!find)
+-+            retKeys.push_back(*iter);
+-+    }
+-+    return retKeys;
+- }
+- 
+- /// TOOD -UT
+-Index: XiaoDB/TreeNodeCacheManager.h
+-===================================================================
+---- XiaoDB/TreeNodeCacheManager.h	（版本 126）
+-+++ XiaoDB/TreeNodeCacheManager.h	（工作副本）
+-@@ -4,6 +4,7 @@
+-  * 
+-  * Revision History:
+-  *     Nov/19/2010: Init
+-+ *     Jan/14/2010: Add codes to keep latest used nodes.
+-  */
+- 
+- #ifndef BILLJEFF_TREE_NODE_CACHE_MANAGER_H
+-@@ -14,6 +15,7 @@
+- #include "HashTable.hpp"
+- 
+- #include <list>
+-+#include <vector>
+- 
+- namespace XiaoDB
+- {
+-@@ -26,7 +28,11 @@
+-         BTreeNode *ptr;
+-     };
+- 
+--    const uint32 MaxLUNCacheSize = 500;
+-+#ifdef _DEBUG
+-+    static const uint32 MaxLUNCacheSize = 5;
+-+#else
+-+    static const uint32 MaxLUNCacheSize = 500;
+-+#endif
+-     
+- public:
+-     /**
+-@@ -64,9 +70,10 @@
+-      * Get to be flushed node from cache. To flush node is old node
+-      * which is not in TreeNodeCacheManager's inner latest used node
+-      * cache.
+--     * @return Return pointer to to-flush node if existed, otherwise return NULL.
+-+     * @return Return a vector of pointer to to-flush node
+-+     *         if existed, otherwise return NULL.
+-      */
+--    BTreeNode* GetToFlushNode();
+-+    std::vector<PointerType> GetToFlushNodes();
+- 
+- protected:
+-     /**
+-Index: common/test/HashTableTest.cpp
+-===================================================================
+---- common/test/HashTableTest.cpp	（版本 123）
+-+++ common/test/HashTableTest.cpp	（工作副本）
+-@@ -3,6 +3,7 @@
+- #include "ut_tools/ut_tool.h"
+- 
+- #include <iostream>
+-+#include <algorithm>
+- 
+- using namespace std;
+- 
+-@@ -90,6 +91,16 @@
+-     re = h.CheckKey(17, val);
+-     TEST_EQUAL(re, false);
+- 
+-+    string destStr = "123456766";
+-+    vector<int32> ret;
+-+    h.GetAllKeys(ret);
+-+    sort(ret.begin(), ret.end());
+-+    stringstream ss;
+-+    for (size_t i = 0; i < ret.size(); ++i) {
+-+        ss << ret[i];
+-+    }
+-+    TEST_EQUAL(ss.str(), destStr);
+-+
+-     return true;
+-     
+- }
+-Index: common/HashTable.hpp
+-===================================================================
+---- common/HashTable.hpp	（版本 123）
+-+++ common/HashTable.hpp	（工作副本）
+-@@ -12,6 +12,7 @@
+- #include <new>
+- #include <cmath>
+- #include <stdint.h>
+-+#include <vector>
+- 
+- #include "Log.h"
+- #include "CommonInclude.h"
+-@@ -157,8 +158,24 @@
+-             prevPtr = ptr;
+-             ptr = ptr->nextPtr;
+-         }
+--        
+-     }
+-+
+-+    /**
+-+     * Get all keys from hash table
+-+     */
+-+    void GetAllKeys(std::vector<KeyType> &ret)
+-+    {
+-+        ret.clear();
+-+        ret.reserve(mItemNum);
+-+        LOG_DEBUG("ItemNum: " << mItemNum << ", TableSize: " << mTableSize);
+-+        for (uint32 i = 0; i < mTableSize; ++i) {
+-+            Node *nodePtr = mTablePtr[i];
+-+            while (nodePtr) {
+-+                ret.push_back(nodePtr->key);
+-+                nodePtr = nodePtr->nextPtr;
+-+            }
+-+        }
+-+    }
+-     
+- private:
+-     /**
