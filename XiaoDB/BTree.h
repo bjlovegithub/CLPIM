@@ -32,6 +32,7 @@ bool SplitNonLeafTest(void);
 bool CopyBSTNodeTest(void);
 bool BSTInsertNodeAndGetSthTest(void);
 bool BTreeNodeInsertSplittedKeyTest(void);
+bool CommitTest(void);
 
 namespace XiaoDB
 {
@@ -255,10 +256,19 @@ private:
     bool WriteBTreeHead();
 
     /**
-     * Rollback change to previous status when some error happened.
+     * Rollback minor change to previous status when some error happened.
+     * One time insert/remove is called minor change.
      * When tree node is modified, the old tree node will be added to a
-     * place. When commit failed, get the old node and write them back
-     * to DB file.
+     * place. 
+     * For the modified nodes, the old node will be copied and put into
+     * mModifiedBTreeNodeSet; For the removed nodes, the old will be copied
+     * and put into mRemovedBTreeNodeSet; For the new generated nodes, its
+     * id(offset) will be copied mNewBTreeNodeSet.
+     * For BTree Insert failure, new generated nodes will be inserted into
+     * mNewBTreeNodeSet, modified(including splitted) nodes will be insert
+     * into mModifiedBTreeNodeSet;
+     * For BTree Remove failure, removed nodes will be inserted into 
+     * mRemovedBTreeNodeSet.
      */
     /// TODO
 
@@ -368,6 +378,7 @@ friend bool ::SplitNonLeafTest(void);
 friend bool ::CopyBSTNodeTest(void);
 friend bool ::BSTInsertNodeAndGetSthTest(void);
 friend bool ::BTreeNodeInsertSplittedKeyTest(void);
+friend bool ::CommitTest(void);
 
 };
 

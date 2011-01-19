@@ -25,3 +25,4 @@ TODO:
 3. Add write modified node back to file operation code and UT.
 4. Test memory usage and leakage.
 5. Flush data to disk in mFileHandler for BPTree.
+6. Add performance test for XiaoDB: Writing, reading, updating

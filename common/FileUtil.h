@@ -1,11 +1,16 @@
 /**
  * FileUtil provides interface for file and directory manipulation functions.
+ * By billjeff.
+ *
+ * Revision History:
+ *     Jan/19/2011 - Add RemoveFile.
  */
 
 #ifndef CLPIM_FILE_UTIL_H
 #define CLPIM_FILE_UTIL_H
 
 #include <string>
+#include <cstdio>
 
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -145,6 +150,13 @@ public:
      *         false.
      */
     static bool CheckFile(const std::string &filePath);
+
+    /**
+     * Remove file from specified path.
+     * @filePath.
+     * @return Return true if operation succeed, otherwise return false.
+     */
+    static bool RemoveFile(const std::string &filePath);
 
     /**
      * Get current working directory.

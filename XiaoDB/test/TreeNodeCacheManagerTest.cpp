@@ -119,4 +119,28 @@ bool GetToFlushNodesTest(void)
 }
 ADD_CASE(GetToFlushNodesTest);
 
+bool GetAllCachedNodesTest(void)
+{
+    TreeNodeCacheManager c;
+    BTreeNode n1, n2, n3, n4, n5, n6, n7;
+    c.AddNode(&n1, 1);
+    c.AddNode(&n2, 2);
+    c.AddNode(&n3, 3);
+    c.AddNode(&n4, 4);
+    c.AddNode(&n5, 5);
+    c.AddNode(&n6, 6);
+    c.AddNode(&n7, 7);
+
+    vector<PointerType> ret = c.GetAllCachedNodes();
+    sort(ret.begin(), ret.end());
+
+    TEST_EQUAL(ret.size(), 7);
+    for (size_t i = 0; i < ret.size(); ++i)
+        TEST_EQUAL(ret[i], i+1);
+            
+    return true;
+}
+ADD_CASE(GetAllCachedNodesTest);
+
+
 REGISTER_UT(TreeNodeCacheManagerUT);

@@ -58,7 +58,6 @@ vector<PointerType> TreeNodeCacheManager::GetAllCachedNodes()
     return allKeys;
 }
 
-/// TODO -UT
 vector<PointerType> TreeNodeCacheManager::GetToFlushNodes()
 {
     vector<PointerType> allKeys;

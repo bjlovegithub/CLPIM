@@ -216,7 +216,14 @@ bool BPlusTree::Open(const string &fileName)
     {
         LOG_INFO("BTree with file name: " << mFileName << " has been opened");
         LOG_INFO("Flush data to " << mFileName << " and close it now.");
-        /// TODO - Commit changes.
+        /// Commit changes.
+        bool ret = Commit();
+        if (!ret) {
+            LOG_ERROR("Commit changes for " << mFileName << " failed");
+            return false;
+        }
+        mFileName = fileName;
+        mInitFlag = false;
     }
     
     /// Open file.
@@ -250,7 +257,6 @@ bool BPlusTree::Open(const string &fileName)
     mBitMapPtr = new (nothrow) bool[BITMAP_EXPAND_SIZE];
     if (NULL == mBitMapPtr) {
         LOG_FATAL("Allocate memory for BitMap error");
-        /// TODO - Free allocated resource.
         return false;
     }
     mBitMapLen = BITMAP_EXPAND_SIZE;
@@ -281,14 +287,17 @@ bool BPlusTree::Open(const string &fileName)
     /// add to cache
     if (!mBTreeNodeCache.AddNode(mRootPtr, mRootOffset)) {
         LOG_ERROR(AddToCacheError);
-        /// TODO - Remove allocated memory
+        /// Remove allocated memory
+        delete mRootPtr;
         return false;
     }
     else {
         ++mCachedNodeNum;
         if (mCachedNodeNum > MAX_CACHED_NODE_NUM) {
-            /// TODO
-            FlushCache();
+            bool ret = FlushCache();
+            if (!ret) {
+                LOG_ERROR("FlushCache error");
+            }
         }
     }
 
@@ -345,7 +354,7 @@ bool BPlusTree::Insert(const uchar *key, uint32 keyLen, PointerType value)
     if (true == hasNewKey) {
         LOG_INFO("New root");
         ptr->mLeft = ptr->mRight = NULL;
-        //// TODO - allocate new root.
+        //// allocate new root.
         mRootPtr = new (nothrow) BTreeNode;
         if (NULL == mRootPtr) {
             LOG_ERROR("Memory allocation error!");
@@ -1394,9 +1403,14 @@ bool BPlusTree::FlushCache()
             if (ptr->mIsDirty) {
                 LOG_DEBUG("Write dirty node back to disk, id: " << 
                           ptr->mOffsetID);
-                /// TODO - Write the dirty node back to disk
-                mBTreeNodeCache.RemoveNode(ptr->mOffsetID);
-                delete ptr;
+                /// Write the dirty node back to disk
+                if (!WriteBTreeNodeToDisk(ptr)) {
+                    LOG_ERROR("Write BTree Node back to disk error");
+                }
+                else {
+                    mBTreeNodeCache.RemoveNode(ptr->mOffsetID);
+                    delete ptr;
+                }
             }
             else {
                 LOG_DEBUG("Remove not dirty node from cache");

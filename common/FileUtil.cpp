@@ -277,6 +277,14 @@ bool FileUtil::CheckFile(const string &filePath)
     return true;
 }
 
+bool FileUtil::RemoveFile(const string &filePath)
+{
+    int ret = remove(filePath.c_str());
+    if (ret != 0)
+        return false;
+    return true;
+}
+
 const char* FileUtil::GetCWD()
 {
     /// TODO

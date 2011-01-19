@@ -764,5 +764,28 @@ bool WriteBTreeNodeToDiskTest(void)
 }
 ADD_CASE(WriteBTreeNodeToDiskTest);
 
+bool CommitTest(void)
+{
+    LOG_CALL();
+
+    BPlusTree t;
+    bool ret;
+    ret = t.Open("data/CommitTest.db");
+    TEST_EQUAL(ret, true);
+
+    uchar key1[] = "key1";
+    uchar key2[] = "key2";
+    t.Insert(key1, 1, 1);
+    t.Insert(key2, 2, 2);
+
+    ret = t.Commit();
+    TEST_EQUAL(ret, true);
+
+    /// TEST_EQUAL(t.mBTreeNodeCache.GetAllCachedNodes.size(), 0);
+    /// TEST_EQUAL(t.mBTreeNodeCache.GetToFlushNodes.size(), 0);
+
+    return true;
+}
+ADD_CASE(CommitTest);
 
 REGISTER_UT(BPlusTreeTest);
