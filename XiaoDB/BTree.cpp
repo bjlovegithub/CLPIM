@@ -348,6 +348,7 @@ bool BPlusTree::Insert(const uchar *key, uint32 keyLen, PointerType value)
     bool ret = RecursiveInsert(insertNodePtr, mRootPtr, hasNewKey, ptr, ptrInfo);
     if (!ret) {
         LOG_ERROR("RecursiveInsert Error!");
+        /// Rollback TODO
         return false;
     }
     /// check whether root node has splitted or not.
@@ -709,6 +710,8 @@ bool BPlusTree::RecursiveInsert(BSTNode *toInsertNode, BTreeNode *currNodePtr,
             }
             memcpy(ptr->mValue, key, keyLen);
             */
+            /// copy and put the old node into 
+            /// TODO
             if (!BSTInsertNode(currNodePtr->mRoot, toInsertNode, currNodePtr)) {
                 LOG_ERROR("Key insert error");
                 return false;
@@ -1204,6 +1207,67 @@ bool BPlusTree::CopyBSTNode(BSTNode* &destPtr, BSTNode *ptr)
     destPtr->mValLen = ptr->mValLen;
     destPtr->mPointer = ptr->mPointer;
     destPtr->mChildPtr = ptr->mChildPtr;
+
+    return true;
+}
+
+
+/**
+ * Make a copy of a Binary Search Tree.
+ */
+bool BPlusTree::CopyBST(BSTNode* &destPtr, BSTNode *sourcePtr)
+{
+    LOG_CALL();
+    bool ret = CopyBSTNode(destPtr, sourcePtr);
+    if (!ret) {
+        LOG_ERROR("CopyBSTNode Error!");
+        destPtr = NULL;
+        return false;
+    }
+    if (sourcePtr->mLeft != NULL) {
+        ret = CopyBST(destPtr->mLeft, sourcePtr->mLeft);
+        if (!ret) {
+            LOG_ERROR("CopyBSTNode(mLeft) Error!");
+            destPtr->mLeft = NULL;
+            return false;
+        }
+    }
+    else
+        destPtr->mLeft = NULL;
+    if (sourcePtr->mRight != NULL) {
+        ret = CopyBST(destPtr->mRight, sourcePtr->mRight);
+        if (!ret) {
+            LOG_ERROR("CopyBSTNode(mRight) Error!");
+            destPtr->mRight = NULL;
+            return false;
+        }
+    }
+    else
+        destPtr->mRight = NULL;
+    return true;
+}
+
+
+/// TODO - UT
+bool BPlusTree::CopyBTreeNode(BTreeNode* &destPtr, BTreeNode *ptr)
+{
+    LOG_CALL();
+    /// TODO
+    destPtr = new (nothrow) BTreeNode;
+    if (!destPtr) {
+        LOG_ERROR(MemoryAllocError);
+        return false;
+    }
+    if (!CopyBST(destPtr->mRoot, ptr->mRoot)) {
+        LOG_ERROR("Copy BST Error!");
+        destPtr->mRoot = NULL;
+        delete destPtr;
+    }
+    destPtr->mPointer = ptr->mPointer;
+    destPtr->mLeafFlag = ptr->mLeafFlag;
+    destPtr->mIsDirty = ptr->mIsDirty;
+    destPtr->mKeyNum = ptr->mKeyNum;
+    destPtr->mOffsetID = ptr->mOffsetID;
 
     return true;
 }

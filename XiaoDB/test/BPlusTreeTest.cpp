@@ -788,4 +788,45 @@ bool CommitTest(void)
 }
 ADD_CASE(CommitTest);
 
+bool CopyBSTTest(void)
+{
+    BPlusTree bpt;
+    BSTNode *root = NULL;
+    BSTNode *node1Ptr = new BSTNode;
+    node1Ptr->mValue = new unsigned char[3];
+    node1Ptr->mValLen = 3;
+    memcpy(node1Ptr->mValue, "abc", 3);
+    bpt.BSTInsertNode(root, node1Ptr, NULL);
+
+    BSTNode *node2Ptr = new BSTNode;
+    node2Ptr->mValue = new unsigned char[2];
+    node2Ptr->mValLen = 2;
+    memcpy(node2Ptr->mValue, "bc", 2);
+    bpt.BSTInsertNode(root, node2Ptr, NULL);
+
+    BSTNode *node3Ptr = new BSTNode;
+    node3Ptr->mValue = new unsigned char[3];
+    node3Ptr->mValLen = 3;
+    memcpy(node3Ptr->mValue, "aaa", 3);
+    bpt.BSTInsertNode(root, node3Ptr, NULL);
+
+    BSTNode *node4Ptr = new BSTNode;
+    node4Ptr->mValue = new unsigned char[1];
+    node4Ptr->mValLen = 1;
+    memcpy(node4Ptr->mValue, "A", 1);
+    bpt.BSTInsertNode(root, node4Ptr, NULL);
+
+    BSTNode *copiedBSTptr = NULL;
+    bool ret = bpt.CopyBST(copiedBSTptr, root);
+    DestroyBST(root);
+    TEST_EQUAL(ret, true);
+    string re;
+    DFS(copiedBSTptr, re);
+    TEST_EQUAL(re, "Aaaaabcbc");
+    DestroyBST(copiedBSTptr);
+
+    return true;
+}
+ADD_CASE(CopyBSTTest);
+
 REGISTER_UT(BPlusTreeTest);

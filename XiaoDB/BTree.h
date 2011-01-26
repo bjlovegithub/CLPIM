@@ -30,6 +30,7 @@ bool GetNewNodeSlotTest(void);
 bool SplitLeafTest(void);
 bool SplitNonLeafTest(void);
 bool CopyBSTNodeTest(void);
+bool CopyBSTTest(void);
 bool BSTInsertNodeAndGetSthTest(void);
 bool BTreeNodeInsertSplittedKeyTest(void);
 bool CommitTest(void);
@@ -229,6 +230,22 @@ private:
     bool CopyBSTNode(BSTNode* &destPtr, BSTNode *ptr);
 
     /**
+     * Make a copy of whole BST.
+     * @param destPtr Pointer to new BST.
+     * @param ptr Source BST pointer.
+     * @return Return true if copy successfully, otherwise return false.
+     */
+    bool CopyBST(BSTNode* &destPtr, BSTNode *ptr);
+
+    /**
+     * Make a new BTreeNode as the input BTreeNode
+     * @param destPtr Pointer to new BTreeNode(copied)
+     * @param ptr Source BTreeNode pointer.
+     * @return Return true if copy successfully, otherwise return false.
+     */
+    bool CopyBTreeNode(BTreeNode* &destPtr, BTreeNode *ptr);
+
+    /**
      * Insert new key into BST, and get info about the inserted key is max/min
      * key in BST, and its subsequent key.
      * @param rootPtr Pointer to BST.
@@ -271,6 +288,7 @@ private:
      * mRemovedBTreeNodeSet.
      */
     /// TODO
+    bool MinorRollback();
 
     /**
      * Dump all keys and values in BTree.
@@ -344,17 +362,11 @@ private:
     TreeNodeCacheManager mBTreeNodeCache;
     uint32 mCachedNodeNum;
 
-    /// mBTreeNodeBackupCache is used to backup the orginal BTree node before
-    /// any modification. mModifiedBTreeNodeSet keeps the modified BTree node
-    /// ID(offset id from bitmap). These two fields are used when minor
-    /// modification error happened and rollback. When error happened, node ID
-    /// in mModifiedBTreeNodeSet will be deleted from mBTreeNodeCache, and
-    /// re-insert BTree node in mBTreeNodeBackupCache back into mBTreeNodeCache.
-    /// For transaction, we will not use this mechanism. We will make a copy of
-    /// entire BTree DB file, and remove this copy only transaction commit
-    /// successfully.
-    TreeNodeCacheManager mBTreeNodeBackupCache;
-    std::vector<PointerType> mModifiedBTreeNodeSet;
+    /// the follow 3 data members are used in minor modification rollback.
+    /// see the function instruction for @MinorRollback.
+    TreeNodeCacheManager mModifiedBTreeNodeSet;
+    TreeNodeCacheManager mRemovedBTreeNodeSet;
+    std::vector<PointerType> mNewBTreeNodeSet;
 
     /// During the key insert, if to-insert key is in BPTree, then this flag will
     /// be set to true, otherwise to false;
@@ -376,6 +388,7 @@ friend bool ::GetNewNodeSlotTest(void);
 friend bool ::SplitLeafTest(void);
 friend bool ::SplitNonLeafTest(void);
 friend bool ::CopyBSTNodeTest(void);
+friend bool ::CopyBSTTest(void);
 friend bool ::BSTInsertNodeAndGetSthTest(void);
 friend bool ::BTreeNodeInsertSplittedKeyTest(void);
 friend bool ::CommitTest(void);
