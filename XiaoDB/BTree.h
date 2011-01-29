@@ -11,6 +11,7 @@
 
 #include <string>
 #include <vector>
+#include <set>
 
 #include "FileUtil.h"
 #include "CommonInclude.h"
@@ -246,6 +247,19 @@ private:
     bool CopyBTreeNode(BTreeNode* &destPtr, BTreeNode *ptr);
 
     /**
+     * Copy the modified BTreeNode and insert into mModifiedBTreeNodeSet.
+     * @param ptr Original BTreeNode pointer.
+     * @return True for success, false for failure.
+     */
+    bool ModifiedBTreeNodeBackup(BTreeNode *ptr);
+
+    /**
+     * Just link ModifiedBTreeNodeBackup, this function
+     * copys the removde BTreeNode and insert into mRemovedBTreeNodeSet.
+     */
+    bool RemovedBTreeNodeBackup(BTreeNode *ptr);
+
+    /**
      * Insert new key into BST, and get info about the inserted key is max/min
      * key in BST, and its subsequent key.
      * @param rootPtr Pointer to BST.
@@ -286,9 +300,17 @@ private:
      * into mModifiedBTreeNodeSet;
      * For BTree Remove failure, removed nodes will be inserted into 
      * mRemovedBTreeNodeSet.
+     * InsertRollback can be used to one time insert/update rollback.
+     * RemoveRollback can be used to one time remove failure rollback.
      */
-    /// TODO
-    bool MinorRollback();
+    bool InsertRollback();
+    bool RemoveRollback();
+
+    /**
+     * Clear all contents in minor change cache(mModifiedBTreeNodeSet,
+     * mRemovedBTreeNodeSet, mNewBTreeNodeSet) which are used by minor rollback.
+     */
+    void ClearMinorRollbackCache();
 
     /**
      * Dump all keys and values in BTree.
@@ -366,7 +388,7 @@ private:
     /// see the function instruction for @MinorRollback.
     TreeNodeCacheManager mModifiedBTreeNodeSet;
     TreeNodeCacheManager mRemovedBTreeNodeSet;
-    std::vector<PointerType> mNewBTreeNodeSet;
+    std::set<PointerType> mNewBTreeNodeSet;
 
     /// During the key insert, if to-insert key is in BPTree, then this flag will
     /// be set to true, otherwise to false;

@@ -696,22 +696,9 @@ bool BPlusTree::RecursiveInsert(BSTNode *toInsertNode, BTreeNode *currNodePtr,
     if (currNodePtr->mLeafFlag) {
         LOG_DEBUG("Insert key in leaf");
         if (currNodePtr->mKeyNum < MAX_ELEMENT_NUMBER) {
-            /*
-            BSTNode *ptr = new (nothrow) BSTNode;
-            if (NULL == ptr) {
-                LOG_FATAL("Memory allocation error");
-                return false;
-            }
-            ptr->mValLen = keyLen;
-            ptr->mValue = new (nothrow) uchar[keyLen];
-            if (NULL == ptr->mValue) {
-                LOG_FATAL("Memory allocation error");
-                return false;
-            }
-            memcpy(ptr->mValue, key, keyLen);
-            */
             /// copy and put the old node into 
-            /// TODO
+            if (!ModifiedBTreeNodeBackup(currNodePtr))
+                return false;
             if (!BSTInsertNode(currNodePtr->mRoot, toInsertNode, currNodePtr)) {
                 LOG_ERROR("Key insert error");
                 return false;
@@ -864,6 +851,9 @@ bool BPlusTree::RecursiveInsert(BSTNode *toInsertNode, BTreeNode *currNodePtr,
         hasNewKey = false;
         if (currNodePtr->mKeyNum < MAX_ELEMENT_NUMBER) {
             LOG_DEBUG("Insert new key into non-leaf node");
+            /// make a backup for rollback
+            if (!ModifiedBTreeNodeBackup(currNodePtr))
+                return false;
             bool mpFlag = false;
             if (!BTreeNodeInsertSplittedKey(currNodePtr, newKey,
                                             ptrInfo, mpFlag))
@@ -904,6 +894,10 @@ BSTNode* BPlusTree::SplitBTreeNode(BTreeNode *node, BSTNode *bstNodePtr,
     if (NULL == bstNodePtr)
         return NULL;
 
+    /// make a copy of to-be splitted nodes
+    if (!ModifiedBTreeNodeBackup(node))
+        return false;
+    
     BSTNode *retPtr = NULL;
 
     bool cacheInsertErr, copyBSTNodeErr;
@@ -1091,6 +1085,9 @@ BSTNode* BPlusTree::SplitBTreeNode(BTreeNode *node, BSTNode *bstNodePtr,
     ptrInfo.first = node->mOffsetID;
     ptrInfo.second = newNodePtr->mOffsetID;
     LOG_DEBUG("New node offset(in bitmap): " << newNodePtr->mOffsetID);
+
+    /// record the new generated node into set for rollback
+    mNewBTreeNodeSet.insert(newNodePtr->mOffsetID);
 
     return retPtr;
 }
@@ -1611,4 +1608,54 @@ bool BPlusTree::Commit()
         delete ptr;
     }
     return true;
+}
+
+bool BPlusTree::ModifiedBTreeNodeBackup(BTreeNode *ptr)
+{
+    LOG_CALL();
+    BTreeNode *copiedPtr = NULL;
+    if (!(CopyBTreeNode(copiedPtr, ptr))) {
+        LOG_ERROR("Copy BTreeNode Error!");
+        return false;
+    }
+    mModifiedBTreeNodeSet.AddNode(copiedPtr, copiedPtr->mOffsetID);
+    return true;
+}
+
+bool BPlusTree::RemovedBTreeNodeBackup(BTreeNode *ptr)
+{
+    LOG_CALL();
+    BTreeNode *copiedPtr = NULL;
+    if (!(CopyBTreeNode(copiedPtr, ptr))) {
+        LOG_ERROR("Copy BTreeNode Error!");
+        return false;
+    }
+    mRemovedBTreeNodeSet.AddNode(copiedPtr, copiedPtr->mOffsetID);
+    return true;
+}
+
+void BPlusTree::ClearMinorRollbackCache()
+{
+    /// clear new generated node set
+    mNewBTreeNodeSet.clear();
+    /// for mModifiedBTreeNodeSet and mRemovedBTreeNodeSet, if rollback happened,
+    /// then related rollback action will clear these two sets.
+    vector<PointerType> s;
+    s = mModifiedBTreeNodeSet.GetAllCachedNodes();
+    for (size_t i = 0; i < s.size(); ++i) {
+        BTreeNode *ptr = mModifiedBTreeNodeSet.GetNode(s[i]);
+        delete ptr;
+    }
+
+    s = mRemovedBTreeNodeSet.GetAllCachedNodes();
+    for (size_t i = 0; i < s.size(); ++i) {
+        BTreeNode *ptr = mRemovedBTreeNodeSet.GetNode(s[i]);
+        delete ptr;
+    }
+}
+
+/// TODO - UT
+bool InsertRollback()
+{
+    
 }
