@@ -306,7 +306,6 @@ bool BPlusTree::Open(const string &fileName)
     return true;
 }
 
-/// TODO - UT
 bool BPlusTree::Insert(const uchar *key, uint32 keyLen, PointerType value)
 {
     if (!mInitFlag) {
@@ -1657,5 +1656,30 @@ void BPlusTree::ClearMinorRollbackCache()
 /// TODO - UT
 bool InsertRollback()
 {
-    
+    LOG_CALL();
+    /// remove modified and new generated btree nodes.
+    typeof(mNewBTreeNodeSet.begin()) iter;
+    for (iter = mNewBTreeNodeSet.begin(); iter != mNewBTreeNodeSet.end(); ++iter)
+    {
+        BTreeNode *ptr = mBTreeNodeCache.GetNode(*iter);
+        mBTreeNodeCache.RemoveNode(*iter);
+        delete ptr;
+    }
+    vector<PointerType> modifiedBTreeNodeID = 
+        mModifiedBTreeNodeSet.GetAllCachedNodes();
+    for (size_t i = 0; i < modifiedBTreeNodeID.size(); ++i) {
+        PointerType id = modifiedBTreeNodeID[i];
+        BTreeNode *ptr = mBTreeNodeCache.GetNode(id);
+        mBTreeNodeCache.RemoveNode(id);
+        delete ptr;
+    }
+    /// put the backup node into btree cache.
+    for (size_t i = 0; i < modifiedBTreeNodeID.size(); ++i) {
+        PointerType id = modifiedBTreeNodeID[i];
+        bool ret = mBTreeNodeCache.CheckNodeExistance(id);
+        LOG_DEBUG("Check node in cache: " << ret);
+        BTreeNode *ptr = mModifiedBTreeNodeSet.GetNode(id);
+        mBTreeNodeCache.AddNode(ptr, id);
+    }
+    return true;
 }
