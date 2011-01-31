@@ -829,4 +829,37 @@ bool CopyBSTTest(void)
 }
 ADD_CASE(CopyBSTTest);
 
+/// TODO
+bool InsertRollbackTest(void)
+{
+    BPlusTree t;
+
+    BTreeNode bn1;
+    bn1.mOffsetID = 1;
+    t.mBTreeNodeCache.AddNode(&bn1, 1);
+
+    BTreeNode bn2;
+    bn2.mOffsetID = 2;
+    t.mModifiedBTreeNodeSet.AddNode(&bn2, 2);
+    t.mBTreeNodeCache.AddNode(&bn2, 2);
+
+    t.mNewBTreeNodeSet.insert(1);
+
+    bool ret = t.InsertRollback();
+    TEST_EQUAL(ret, true);
+    vector<PointerType> idInCache = t.mBTreeNodeCache.GetAllCachedNodes();
+    TEST_EQUAL(idInCache.size(), 1);
+    TEST_EQUAL(idInCache[0], 2);
+    
+    return true;
+}
+ADD_CASE(InsertRollbackTest);
+
+bool RemoveRollbackTest(void)
+{
+
+    return true;
+}
+ADD_CASE(RemoveRollbackTest);
+
 REGISTER_UT(BPlusTreeTest);

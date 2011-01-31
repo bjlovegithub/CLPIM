@@ -35,6 +35,8 @@ bool CopyBSTTest(void);
 bool BSTInsertNodeAndGetSthTest(void);
 bool BTreeNodeInsertSplittedKeyTest(void);
 bool CommitTest(void);
+bool InsertRollbackTest(void);
+bool RemoveRollbackTest(void);
 
 namespace XiaoDB
 {
@@ -414,6 +416,8 @@ friend bool ::CopyBSTTest(void);
 friend bool ::BSTInsertNodeAndGetSthTest(void);
 friend bool ::BTreeNodeInsertSplittedKeyTest(void);
 friend bool ::CommitTest(void);
+friend bool ::InsertRollbackTest(void);
+friend bool ::RemoveRollbackTest(void);
 
 };
 

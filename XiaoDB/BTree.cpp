@@ -313,6 +313,9 @@ bool BPlusTree::Insert(const uchar *key, uint32 keyLen, PointerType value)
         return false;
     }
 
+    /// clear minor rollback cache
+    ClearMinorRollbackCache();
+
     LOG_INFO("To Insert Key: " << Key(key, keyLen).ToString());
 
     /// set insert dup flag to false.
@@ -1664,6 +1667,7 @@ bool InsertRollback()
         BTreeNode *ptr = mBTreeNodeCache.GetNode(*iter);
         mBTreeNodeCache.RemoveNode(*iter);
         delete ptr;
+        UpdateBitMap(*iter, false);
     }
     vector<PointerType> modifiedBTreeNodeID = 
         mModifiedBTreeNodeSet.GetAllCachedNodes();
@@ -1681,5 +1685,26 @@ bool InsertRollback()
         BTreeNode *ptr = mModifiedBTreeNodeSet.GetNode(id);
         mBTreeNodeCache.AddNode(ptr, id);
     }
+    /// clear minor modified cache
+    mNewBTreeNodeSet.clear();
+    mModifiedBTreeNodeSet.clear();
+    return true;
+}
+
+
+/// TODO - UT
+bool RemoveRollback()
+{
+    LOG_CALL();
+    vector<PointerType> removedBTreeNodeID = 
+        mRemovedBTreeNodeSet.GetAllCachedNodes();
+    for (size_t i = 0; i < removedBTreeNodeID.size(); ++i) {
+        PointerType id = removedBTreeNodeID[i];
+        BTreeNode *ptr = mRemovedBTreeNodeSet.GetNode(id);
+        mBTreeNodeCache.AddNode(ptr, id);
+        delete ptr;
+    }
+    /// clear minor rollback cache
+    mRemovedBTreeNodeSet.clear();
     return true;
 }
