@@ -81,6 +81,11 @@ public:
      */
     std::vector<PointerType> GetToFlushNodes();
 
+    /**
+     * Clear all keys in cache
+     */
+    void Clear();
+
 protected:
     /**
      * Remove a node from mLUNCache.

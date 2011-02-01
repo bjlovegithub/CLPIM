@@ -857,6 +857,17 @@ ADD_CASE(InsertRollbackTest);
 
 bool RemoveRollbackTest(void)
 {
+    BPlusTree t;
+    
+    BTreeNode bn1;
+    bn1.mOffsetID = 1;
+    t.mRemovedBTreeNodeSet.AddNode(&bn1, 1);
+
+    t.RemoveRollback();
+
+    vector<PointerType> idSet = t.mBTreeNodeCache.GetAllCachedNodes();
+    TEST_EQUAL(idSet.size(), 1);
+    TEST_EQUAL(idSet[0], 1);
 
     return true;
 }

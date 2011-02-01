@@ -1186,7 +1186,8 @@ bool BPlusTree::CopyBSTNode(BSTNode* &destPtr, BSTNode *ptr)
 {
     if (NULL == ptr) {
         LOG_INFO("Source BSTNode pointer is NULL");
-        return false;
+        destPtr = ptr;
+        return true;
     }
 
     destPtr = new (nothrow) BSTNode;
@@ -1261,6 +1262,7 @@ bool BPlusTree::CopyBTreeNode(BTreeNode* &destPtr, BTreeNode *ptr)
         LOG_ERROR("Copy BST Error!");
         destPtr->mRoot = NULL;
         delete destPtr;
+        return false;
     }
     destPtr->mPointer = ptr->mPointer;
     destPtr->mLeafFlag = ptr->mLeafFlag;
@@ -1657,7 +1659,7 @@ void BPlusTree::ClearMinorRollbackCache()
 }
 
 /// TODO - UT
-bool InsertRollback()
+bool BPlusTree::InsertRollback()
 {
     LOG_CALL();
     /// remove modified and new generated btree nodes.
@@ -1687,13 +1689,13 @@ bool InsertRollback()
     }
     /// clear minor modified cache
     mNewBTreeNodeSet.clear();
-    mModifiedBTreeNodeSet.clear();
+    mModifiedBTreeNodeSet.Clear();
     return true;
 }
 
 
 /// TODO - UT
-bool RemoveRollback()
+bool BPlusTree::RemoveRollback()
 {
     LOG_CALL();
     vector<PointerType> removedBTreeNodeID = 
@@ -1705,6 +1707,6 @@ bool RemoveRollback()
         delete ptr;
     }
     /// clear minor rollback cache
-    mRemovedBTreeNodeSet.clear();
+    mRemovedBTreeNodeSet.Clear();
     return true;
 }

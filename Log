@@ -20,6 +20,8 @@ Jan/18/2011
 1. Fix UT failure for commit change to disk file.
 Jan/26/2011
 1. Add copy BTreeNode functions. These functions are used by MinorRollback.
+Feb/1/2011
+1. TODO - Find the UT error for BPlusTree.
 
 TODO:
 1. Modify UT to test all key number in BPTree.

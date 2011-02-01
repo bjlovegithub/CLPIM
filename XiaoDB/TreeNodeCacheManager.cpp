@@ -108,3 +108,12 @@ void TreeNodeCacheManager::AddNodeIntoLUNCache(PointerType id, BTreeNode *ptr)
     }
 }
 
+// TODO - UT
+void TreeNodeCacheManager::Clear()
+{
+    vector<PointerType> idSet = GetAllCachedNodes();
+    for (size_t i = 0; i < idSet.size(); ++i) {
+        mCacher.RemoveKey(idSet[i]);
+        RemoveNodeFromLUNCache(idSet[i]);
+    }
+}
