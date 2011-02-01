@@ -16,6 +16,7 @@
 
 #include <list>
 #include <vector>
+#include <string>
 
 namespace XiaoDB
 {
@@ -85,6 +86,11 @@ public:
      * Clear all keys in cache
      */
     void Clear();
+
+    /**
+     * Dump the content of cache
+     */
+    std::string Dump();
 
 protected:
     /**

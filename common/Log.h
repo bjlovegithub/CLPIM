@@ -32,27 +32,41 @@
 namespace CLPIM
 {
     /// const char LOGFILE[] = CLPIM_CONF_PATH"log" ;
+    enum LOG_LEVEL {DEBUG, INFO, ERROR, FATAL};
     class Log
     {
     public:
-        enum LEVEL {DEBUG, INFO, ERROR, FATAL};
+        class LogCallTmpClass
+        {
+        public:
+            LogCallTmpClass(const std::string &f, int l,
+                            const std::string &fn, LOG_LEVEL level);
+            ~LogCallTmpClass();
+        private:
+            std::string mFileName;
+            int mLineNum;
+            std::string mFuncName;
+            LOG_LEVEL mLevel;
+        };
+    public:
+
     private:
         int f_;
         // if verbose_ is true, then WriteLog can take effect, otherwise,
         // no log info will be generated.
         bool verbose_ ;
         Calendar c_ ;
-        LEVEL mLevel;
+        LOG_LEVEL mLevel;
     public:
         Log() ;
         ~Log() ;
         void TurnOn();
         void TurnOff();
-        void WriteLog(const char *, LEVEL l);
-        void WriteLog(const std::string &s, LEVEL l);
-        void SetLevel(LEVEL l);
+        void WriteLog(const char *, LOG_LEVEL l);
+        void WriteLog(const std::string &s, LOG_LEVEL l);
+        void SetLevel(LOG_LEVEL l);
     private:
-        std::string LevelToStr(LEVEL l);
+        std::string LevelToStr(LOG_LEVEL l);
     };
 
     class LogManager
@@ -80,11 +94,14 @@ namespace CLPIM
         CLPIM::LogManager::GetInstance()->WriteLog(ss.str(), l); \
     } while(0)
 
-#define LOG_DEBUG(content) LOG(content, CLPIM::Log::DEBUG)
-#define LOG_CALL() LOG(__FUNCTION__, CLPIM::Log::DEBUG)
-#define LOG_INFO(content) LOG(content, CLPIM::Log::INFO)
-#define LOG_ERROR(content) LOG(content, CLPIM::Log::ERROR)
-#define LOG_FATAL(content) LOG(content, CLPIM::Log::FATAL)
+#define LOG_DEBUG(content) LOG(content, CLPIM::DEBUG)
+#define LOG_CALL() CLPIM::Log::LogCallTmpClass log_call_temp_obj(__FILE__, \
+                                                                 __LINE__, \
+                                                                 __FUNCTION__, \
+                                                                 CLPIM::DEBUG);
+#define LOG_INFO(content) LOG(content, CLPIM::INFO)
+#define LOG_ERROR(content) LOG(content, CLPIM::ERROR)
+#define LOG_FATAL(content) LOG(content, CLPIM::FATAL)
 
 #define SET_LOG_LEVEL(l) CLPIM::LogManager::GetInstance()->SetLevel(l)
     

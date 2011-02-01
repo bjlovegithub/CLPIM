@@ -308,6 +308,8 @@ bool BPlusTree::Open(const string &fileName)
 
 bool BPlusTree::Insert(const uchar *key, uint32 keyLen, PointerType value)
 {
+    LOG_CALL();
+
     if (!mInitFlag) {
         LOG_ERROR("B+ Tree has not been initialized");
         return false;
@@ -1191,6 +1193,7 @@ bool BPlusTree::CopyBSTNode(BSTNode* &destPtr, BSTNode *ptr)
     }
 
     destPtr = new (nothrow) BSTNode;
+    LOG_DEBUG("new bstnode: " << destPtr);
     if (NULL == destPtr) {
         LOG_ERROR("Memory allocation error!");
         return false;
@@ -1224,6 +1227,8 @@ bool BPlusTree::CopyBST(BSTNode* &destPtr, BSTNode *sourcePtr)
         destPtr = NULL;
         return false;
     }
+    if (NULL == sourcePtr)
+        return true;
     if (sourcePtr->mLeft != NULL) {
         ret = CopyBST(destPtr->mLeft, sourcePtr->mLeft);
         if (!ret) {
@@ -1254,6 +1259,7 @@ bool BPlusTree::CopyBTreeNode(BTreeNode* &destPtr, BTreeNode *ptr)
     LOG_CALL();
     /// TODO
     destPtr = new (nothrow) BTreeNode;
+    LOG_DEBUG("new btree node: " << destPtr);
     if (!destPtr) {
         LOG_ERROR(MemoryAllocError);
         return false;
@@ -1264,6 +1270,7 @@ bool BPlusTree::CopyBTreeNode(BTreeNode* &destPtr, BTreeNode *ptr)
         delete destPtr;
         return false;
     }
+    LOG_DEBUG("new btree node root: " << destPtr->mRoot);
     destPtr->mPointer = ptr->mPointer;
     destPtr->mLeafFlag = ptr->mLeafFlag;
     destPtr->mIsDirty = ptr->mIsDirty;
@@ -1640,22 +1647,30 @@ bool BPlusTree::RemovedBTreeNodeBackup(BTreeNode *ptr)
 
 void BPlusTree::ClearMinorRollbackCache()
 {
+    LOG_CALL();
     /// clear new generated node set
     mNewBTreeNodeSet.clear();
     /// for mModifiedBTreeNodeSet and mRemovedBTreeNodeSet, if rollback happened,
     /// then related rollback action will clear these two sets.
     vector<PointerType> s;
     s = mModifiedBTreeNodeSet.GetAllCachedNodes();
+    LOG_DEBUG("Dump of mModifiedBTreeNodeSet:\n" 
+              << mModifiedBTreeNodeSet.Dump());
     for (size_t i = 0; i < s.size(); ++i) {
         BTreeNode *ptr = mModifiedBTreeNodeSet.GetNode(s[i]);
+        LOG_DEBUG("Del: " << ptr);
         delete ptr;
     }
+    mModifiedBTreeNodeSet.Clear();
 
     s = mRemovedBTreeNodeSet.GetAllCachedNodes();
+    LOG_DEBUG("Dump of mRemovedBTreeNodeSet:\n" 
+              << mRemovedBTreeNodeSet.Dump());
     for (size_t i = 0; i < s.size(); ++i) {
         BTreeNode *ptr = mRemovedBTreeNodeSet.GetNode(s[i]);
         delete ptr;
     }
+    mRemovedBTreeNodeSet.Clear();
 }
 
 /// TODO - UT

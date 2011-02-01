@@ -10,6 +10,8 @@
 #include "TreeNodeCacheManager.h"
 #include "Log.h"
 
+#include <sstream>
+
 using namespace XiaoDB;
 using namespace CLPIM;
 using namespace std;
@@ -116,4 +118,17 @@ void TreeNodeCacheManager::Clear()
         mCacher.RemoveKey(idSet[i]);
         RemoveNodeFromLUNCache(idSet[i]);
     }
+}
+
+
+string TreeNodeCacheManager::Dump()
+{
+    stringstream ss;
+    vector<PointerType> idSet = GetAllCachedNodes();
+    for (size_t i = 0; i < idSet.size(); ++i) {
+        BTreeNode *ptr = GetNode(idSet[i]);
+        ss << "key: " << idSet[i] << "\t" << ptr << "\n";
+            //<< "\t" << ptr->Dump() << "\n";
+    }
+    return ss.str();
 }

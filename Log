@@ -21,7 +21,7 @@ Jan/18/2011
 Jan/26/2011
 1. Add copy BTreeNode functions. These functions are used by MinorRollback.
 Feb/1/2011
-1. TODO - Find the UT error for BPlusTree.
+1. Find the UT error for BPlusTree and fix them.
 
 TODO:
 1. Modify UT to test all key number in BPTree.

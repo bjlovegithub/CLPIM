@@ -57,7 +57,7 @@ void Log::TurnOff()
 }
 
 // Write information to terminal and log files.
-void Log::WriteLog(const char *info, LEVEL l)
+void Log::WriteLog(const char *info, LOG_LEVEL l)
 {
     if (verbose_ && info != 0 && l >= mLevel){
         string s = "[LOG " ;
@@ -67,17 +67,17 @@ void Log::WriteLog(const char *info, LEVEL l)
     }
 }
 
-void Log::WriteLog(const string &s, LEVEL l)
+void Log::WriteLog(const string &s, LOG_LEVEL l)
 {
     WriteLog(s.c_str(), l) ;
 }
 
-void Log::SetLevel(LEVEL l)
+void Log::SetLevel(LOG_LEVEL l)
 {
     mLevel = l;
 }
 
-string Log::LevelToStr(LEVEL l)
+string Log::LevelToStr(LOG_LEVEL l)
 {
     string str;
     switch(l)
@@ -97,5 +97,27 @@ string Log::LevelToStr(LEVEL l)
     }
     return str;
 }
+
+Log::LogCallTmpClass::LogCallTmpClass(const std::string &f, int l,
+                                      const std::string &fn, LOG_LEVEL level)
+{
+    mFileName = f;
+    mLineNum = l;
+    mFuncName = fn;
+    mLevel = level;
+    stringstream ss;
+    ss << mFileName << ":" << mLineNum
+       << " [" << mFuncName << "] " << "Call " << mFuncName;
+    CLPIM::LogManager::GetInstance()->WriteLog(ss.str(), mLevel);
+}
+
+Log::LogCallTmpClass::~LogCallTmpClass()
+{
+    stringstream ss;
+    ss << mFileName << ":" << mLineNum
+       << " [" << mFuncName << "] " << "Leave " << mFuncName;
+    CLPIM::LogManager::GetInstance()->WriteLog(ss.str(), mLevel);
+}
+
 
 Log* LogManager::sLogger = NULL;

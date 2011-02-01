@@ -630,6 +630,8 @@ ADD_CASE(RecursiveInsertTest);
 
 bool BPTreeInsertTest(void)
 {
+    LOG_CALL();
+
     BPlusTree tree;
     bool ret = tree.Open("data/GetNodeTest.in");
     TEST_EQUAL(ret, true);
@@ -834,14 +836,16 @@ bool InsertRollbackTest(void)
 {
     BPlusTree t;
 
-    BTreeNode bn1;
-    bn1.mOffsetID = 1;
-    t.mBTreeNodeCache.AddNode(&bn1, 1);
+    BTreeNode *bn1Ptr = new BTreeNode;
+    bn1Ptr->mOffsetID = 1;
+    t.mBTreeNodeCache.AddNode(bn1Ptr, 1);
 
-    BTreeNode bn2;
-    bn2.mOffsetID = 2;
-    t.mModifiedBTreeNodeSet.AddNode(&bn2, 2);
-    t.mBTreeNodeCache.AddNode(&bn2, 2);
+    BTreeNode *bn2Ptr = new BTreeNode;
+    bn2Ptr->mOffsetID = 2;
+    t.mModifiedBTreeNodeSet.AddNode(bn2Ptr, 2);
+    BTreeNode *bn2NewPtr = new BTreeNode;
+    bn2NewPtr->mOffsetID = 2;
+    t.mBTreeNodeCache.AddNode(bn2NewPtr, 2);
 
     t.mNewBTreeNodeSet.insert(1);
 
@@ -859,9 +863,9 @@ bool RemoveRollbackTest(void)
 {
     BPlusTree t;
     
-    BTreeNode bn1;
-    bn1.mOffsetID = 1;
-    t.mRemovedBTreeNodeSet.AddNode(&bn1, 1);
+    BTreeNode *bn1Ptr = new BTreeNode;
+    bn1Ptr->mOffsetID = 1;
+    t.mRemovedBTreeNodeSet.AddNode(bn1Ptr, 1);
 
     t.RemoveRollback();
 
