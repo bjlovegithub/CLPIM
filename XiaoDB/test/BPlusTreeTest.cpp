@@ -118,25 +118,29 @@ bool BSTInsertNodeTest(void)
     node1Ptr->mValue = new unsigned char[3];
     node1Ptr->mValLen = 3;
     memcpy(node1Ptr->mValue, "abc", 3);
-    bpt.BSTInsertNode(root, node1Ptr, NULL);
+    bool dupFlag = false;
+    bpt.BSTInsertNode(root, node1Ptr, NULL, dupFlag);
 
     BSTNode *node2Ptr = new BSTNode;
     node2Ptr->mValue = new unsigned char[2];
     node2Ptr->mValLen = 2;
     memcpy(node2Ptr->mValue, "bc", 2);
-    bpt.BSTInsertNode(root, node2Ptr, NULL);
+    dupFlag = false;
+    bpt.BSTInsertNode(root, node2Ptr, NULL, dupFlag);
 
     BSTNode *node3Ptr = new BSTNode;
     node3Ptr->mValue = new unsigned char[3];
     node3Ptr->mValLen = 3;
     memcpy(node3Ptr->mValue, "aaa", 3);
-    bpt.BSTInsertNode(root, node3Ptr, NULL);
+    dupFlag = false;
+    bpt.BSTInsertNode(root, node3Ptr, NULL, dupFlag);
 
     BSTNode *node4Ptr = new BSTNode;
     node4Ptr->mValue = new unsigned char[1];
     node4Ptr->mValLen = 1;
     memcpy(node4Ptr->mValue, "A", 1);
-    bpt.BSTInsertNode(root, node4Ptr, NULL);
+    dupFlag = false;
+    bpt.BSTInsertNode(root, node4Ptr, NULL, dupFlag);
 
     string re;
     DFS(root, re);
@@ -264,8 +268,8 @@ bool GetBSTKeysTest(void)
     tree.GetBSTKeys(root, re);
     TEST_EQUAL(re.size(), 0);
 
-    tree.BSTInsertNode(root, tn1, NULL);
-    tree.BSTInsertNode(root, tn2, NULL);
+    tree.BSTInsertNodeWrapper(root, tn1, NULL);
+    tree.BSTInsertNodeWrapper(root, tn2, NULL);
     re.clear();
     tree.GetBSTKeys(root, re);
     {
@@ -277,8 +281,8 @@ bool GetBSTKeysTest(void)
     TEST_EQUAL_ARR(re[0]->mValue, ((uchar*)key2), 4);
     TEST_EQUAL_ARR(re[1]->mValue, ((uchar*)key1), 4);
 
-    tree.BSTInsertNode(root, tn3, NULL);
-    tree.BSTInsertNode(root, tn4, NULL);
+    tree.BSTInsertNodeWrapper(root, tn3, NULL);
+    tree.BSTInsertNodeWrapper(root, tn4, NULL);
     {
         string str;
         DFS(root, str);
@@ -467,8 +471,8 @@ bool BSTInsertNodeAndGetSthTest(void)
     t.CopyBSTNode(node3Ptr, root);
     AssignKey(node3Ptr, key3, 5);
 
-    t.BSTInsertNode(root, node2Ptr, NULL);
-    t.BSTInsertNode(root, node3Ptr, NULL);
+    t.BSTInsertNodeWrapper(root, node2Ptr, NULL);
+    t.BSTInsertNodeWrapper(root, node3Ptr, NULL);
 
     /// test insert key at the beginning of BST.
     {
@@ -777,8 +781,8 @@ bool CommitTest(void)
 
     uchar key1[] = "key1";
     uchar key2[] = "key2";
-    t.Insert(key1, 1, 1);
-    t.Insert(key2, 2, 2);
+    t.Insert(key1, 4, 1);
+    t.Insert(key2, 4, 2);
 
     ret = t.Commit();
     TEST_EQUAL(ret, true);
@@ -798,25 +802,25 @@ bool CopyBSTTest(void)
     node1Ptr->mValue = new unsigned char[3];
     node1Ptr->mValLen = 3;
     memcpy(node1Ptr->mValue, "abc", 3);
-    bpt.BSTInsertNode(root, node1Ptr, NULL);
+    bpt.BSTInsertNodeWrapper(root, node1Ptr, NULL);
 
     BSTNode *node2Ptr = new BSTNode;
     node2Ptr->mValue = new unsigned char[2];
     node2Ptr->mValLen = 2;
     memcpy(node2Ptr->mValue, "bc", 2);
-    bpt.BSTInsertNode(root, node2Ptr, NULL);
+    bpt.BSTInsertNodeWrapper(root, node2Ptr, NULL);
 
     BSTNode *node3Ptr = new BSTNode;
     node3Ptr->mValue = new unsigned char[3];
     node3Ptr->mValLen = 3;
     memcpy(node3Ptr->mValue, "aaa", 3);
-    bpt.BSTInsertNode(root, node3Ptr, NULL);
+    bpt.BSTInsertNodeWrapper(root, node3Ptr, NULL);
 
     BSTNode *node4Ptr = new BSTNode;
     node4Ptr->mValue = new unsigned char[1];
     node4Ptr->mValLen = 1;
     memcpy(node4Ptr->mValue, "A", 1);
-    bpt.BSTInsertNode(root, node4Ptr, NULL);
+    bpt.BSTInsertNodeWrapper(root, node4Ptr, NULL);
 
     BSTNode *copiedBSTptr = NULL;
     bool ret = bpt.CopyBST(copiedBSTptr, root);

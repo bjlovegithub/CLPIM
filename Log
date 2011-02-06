@@ -22,6 +22,8 @@ Jan/26/2011
 1. Add copy BTreeNode functions. These functions are used by MinorRollback.
 Feb/1/2011
 1. Find the UT error for BPlusTree and fix them.
+Feb/6/2011
+1. Fix insert duplicated key error caused by wrong mKeyNum increasement for BTreeNode.
 
 TODO:
 1. Modify UT to test all key number in BPTree.

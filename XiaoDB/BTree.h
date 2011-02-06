@@ -122,9 +122,18 @@ private:
      * @param root Pointer to the root of BST.
      * @param bstNodePtr Pointer to BST.
      * @param ptr Pointer to BTreeNode, ptr->mRoot is equal to parameter root.
+     * @param dupFlag Indicates whether to-insert BSTNode is in BST or not.
      * @return Return true if inserting node with no error, otherwise false.
      */
-    bool BSTInsertNode(BSTNode* &root, BSTNode *bstNodePtr, BTreeNode *ptr);
+    bool BSTInsertNode(BSTNode* &root, BSTNode *bstNodePtr,
+                       BTreeNode *ptr, bool &dupFlag);
+
+    /**
+     * BST key insert wrapper. It is a wrapper function to finish key insert and
+     * related property update(mKeyNum).
+     * See the parameter and return value info at BSTInsertNode.
+     */
+    bool BSTInsertNodeWrapper(BSTNode* &root, BSTNode *bstNodePtr,BTreeNode *ptr);
 
     /**
      * NOTE: DEPRECATED

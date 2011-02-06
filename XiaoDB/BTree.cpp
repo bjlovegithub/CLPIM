@@ -352,7 +352,9 @@ bool BPlusTree::Insert(const uchar *key, uint32 keyLen, PointerType value)
     bool ret = RecursiveInsert(insertNodePtr, mRootPtr, hasNewKey, ptr, ptrInfo);
     if (!ret) {
         LOG_ERROR("RecursiveInsert Error!");
-        /// Rollback TODO
+        /// Rollback
+        if (!InsertRollback())
+            LOG_ERROR("Insert rollback error!");
         return false;
     }
     /// check whether root node has splitted or not.
@@ -364,25 +366,31 @@ bool BPlusTree::Insert(const uchar *key, uint32 keyLen, PointerType value)
         if (NULL == mRootPtr) {
             LOG_ERROR("Memory allocation error!");
             delete ptr;
-            /// TODO - Rollback.
+            /// Rollback.
+            if (!InsertRollback()) 
+                LOG_ERROR("Insert rollback error!");
             return false;
         }
         /// assign offset id
         mRootPtr->mOffsetID = GetNewNodeSlot();
         if (0 == mRootPtr->mOffsetID) {
             delete mRootPtr;
-            /// Rollback.
+            if (!InsertRollback())
+                LOG_ERROR("Insert rollback error!");
             return false;
         }
         UpdateBitMap(mRootPtr->mOffsetID, true);
         /// insert new key into new root
-        if (!BSTInsertNode(mRootPtr->mRoot, ptr, mRootPtr)) {
+        bool dupFlag = false;
+        if (!BSTInsertNode(mRootPtr->mRoot, ptr, mRootPtr, dupFlag)) {
             LOG_ERROR("BSTInsertNode Error");
             delete mRootPtr;
-            /// TODO - Rollback
+            if (!InsertRollback())
+                LOG_ERROR("Insert rollback error!");
             return false;
         }
-        mRootPtr->mKeyNum += 1;
+        if (!dupFlag)
+            mRootPtr->mKeyNum += 1;
         mRootPtr->mIsDirty = true;
         mRootPtr->mLeafFlag = false;
         mRootPtr->mRoot->mPointer = ptrInfo.first;
@@ -391,7 +399,8 @@ bool BPlusTree::Insert(const uchar *key, uint32 keyLen, PointerType value)
         if (!mBTreeNodeCache.AddNode(mRootPtr, mRootPtr->mOffsetID)) {
             LOG_ERROR("Add node into BTreeNode Cache Error!");
             delete mRootPtr;
-            /// TODO - Rollback
+            if (!InsertRollback())
+                LOG_ERROR("Insert rollback error!");
             return false;
         }
         mRootOffset = mRootPtr->mOffsetID;
@@ -553,8 +562,10 @@ bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
             
             pos += POINTER_LEN;
             /// insert this node into current B+ tree node.
-            BSTInsertNode(nodePtr->mRoot, bstNodePtr, nodePtr);
-            nodePtr->mKeyNum += 1;
+            bool dupFlag = false;
+            BSTInsertNode(nodePtr->mRoot, bstNodePtr, nodePtr, dupFlag);
+            if (!dupFlag)
+                nodePtr->mKeyNum += 1;
         }
 
         /// According to the structure of B+ tree node, the last key-value pair
@@ -615,7 +626,7 @@ bool BPlusTree::ParseKeyAndValue(BSTNode *bstNodePtr, const string &str)
 }
 
 bool BPlusTree::BSTInsertNode(BSTNode* &root, BSTNode *bstNodePtr,
-                              BTreeNode *btreeNodePtr)
+                              BTreeNode *btreeNodePtr, bool &dupFlag)
 {
     LOG_DEBUG("Call BSTInsertNode");
     if (NULL == bstNodePtr) {
@@ -642,7 +653,8 @@ bool BPlusTree::BSTInsertNode(BSTNode* &root, BSTNode *bstNodePtr,
             LOG_DEBUG("Duppliated Keys: " << bstNodePtr->mValue);
             LOG_INFO("Update duplicated key node info");
             ptr->mPointer = bstNodePtr->mPointer;
-            return false;
+            dupFlag = true;
+            return true;
         }
         else if (1 == compRet)
         {
@@ -703,13 +715,17 @@ bool BPlusTree::RecursiveInsert(BSTNode *toInsertNode, BTreeNode *currNodePtr,
             /// copy and put the old node into 
             if (!ModifiedBTreeNodeBackup(currNodePtr))
                 return false;
-            if (!BSTInsertNode(currNodePtr->mRoot, toInsertNode, currNodePtr)) {
+            bool dupFlag = false;
+            if (!BSTInsertNode(currNodePtr->mRoot, toInsertNode,
+                               currNodePtr, dupFlag))
+            {
                 LOG_ERROR("Key insert error");
                 return false;
             }
             /// set dirty flag
             currNodePtr->mIsDirty = true;
-            currNodePtr->mKeyNum += 1;
+            if (!dupFlag)
+                currNodePtr->mKeyNum += 1;
             hasNewKey = false;
 
             LOG_DEBUG("\nAfter Insert(leaf):\n" << currNodePtr->Dump());
@@ -833,8 +849,8 @@ bool BPlusTree::RecursiveInsert(BSTNode *toInsertNode, BTreeNode *currNodePtr,
         else {
             ++mCachedNodeNum;
             if (mCachedNodeNum > MAX_CACHED_NODE_NUM) {
-                /// TODO - Reduce cached node num, write dirty node back to file
-                
+                /// Reduce cached node num, write dirty node back to file
+                FlushCache();
             }
         }
     }
@@ -851,7 +867,7 @@ bool BPlusTree::RecursiveInsert(BSTNode *toInsertNode, BTreeNode *currNodePtr,
     if (hasNewKey) {
         LOG_DEBUG("RecursiveInsert, non-leaf, has new key, dump current node: " <<
                   currNodePtr->Dump());
-        /// TODO - Insert new key into current node, split it if necessary.
+        /// Insert new key into current node, split it if necessary.
         hasNewKey = false;
         if (currNodePtr->mKeyNum < MAX_ELEMENT_NUMBER) {
             LOG_DEBUG("Insert new key into non-leaf node");
@@ -872,7 +888,7 @@ bool BPlusTree::RecursiveInsert(BSTNode *toInsertNode, BTreeNode *currNodePtr,
 
         }
         else {
-            /// TODO - Split current node.
+            /// Split current node.
             LOG_DEBUG("Insert new key into non-leaf node with splition");
             newKey = SplitBTreeNode(currNodePtr, newKey, false, ptrInfo);
             if (NULL == newKey) {
@@ -924,8 +940,10 @@ BSTNode* BPlusTree::SplitBTreeNode(BTreeNode *node, BSTNode *bstNodePtr,
     /// TODO - Maybe randomize the keys first is better(keep the BST balanced)
     LOG_DEBUG("Insert splitted keys into left node");
     for (size_t i = 0; i < splitterPos; ++i) {
-        BSTInsertNode(node->mRoot, keyVec[i], node);
-        node->mKeyNum += 1;
+        bool dupFlag = false;
+        BSTInsertNode(node->mRoot, keyVec[i], node, dupFlag);
+        if (!dupFlag)
+            node->mKeyNum += 1;
     }
     node->mIsDirty = true;
     node->mLeafFlag = isLeaf;
@@ -937,8 +955,7 @@ BSTNode* BPlusTree::SplitBTreeNode(BTreeNode *node, BSTNode *bstNodePtr,
         /// if allocate new node error, old keys should be inserted again.
         node->mRoot = NULL;
         for (size_t i = splitterPos; i < keyVec.size(); ++i) {
-            BSTInsertNode(node->mRoot, keyVec[i], node);
-            node->mKeyNum += 1;
+            BSTInsertNodeWrapper(node->mRoot, keyVec[i], node);
         }
         return NULL;
     }
@@ -956,8 +973,7 @@ BSTNode* BPlusTree::SplitBTreeNode(BTreeNode *node, BSTNode *bstNodePtr,
         newNodePtr->mKeyNum = 0;
         LOG_DEBUG("Insert splitted kyes into new node");
         for (; i < keyVec.size(); ++i) {
-            BSTInsertNode(newNodePtr->mRoot, keyVec[i], newNodePtr);
-            newNodePtr->mKeyNum += 1;
+            BSTInsertNodeWrapper(newNodePtr->mRoot, keyVec[i], newNodePtr);
         }
     }
 
@@ -982,7 +998,9 @@ BSTNode* BPlusTree::SplitBTreeNode(BTreeNode *node, BSTNode *bstNodePtr,
         }
         /// we use different insert function for leaf and non-leaf node
         if (isLeaf) {
-            if (!BSTInsertNode(insertIntoPtr->mRoot, bstNodePtr, insertIntoPtr)) {
+            if (!BSTInsertNodeWrapper(insertIntoPtr->mRoot, bstNodePtr,
+                                      insertIntoPtr))
+            {
                 LOG_ERROR("Insert new key into leaf node error");
                 /// TODO - I think this is a critical error, quit the whole
                 /// process is allowable.
@@ -1038,7 +1056,7 @@ BSTNode* BPlusTree::SplitBTreeNode(BTreeNode *node, BSTNode *bstNodePtr,
         }
         insertIntoPtr->mIsDirty = true;
         insertIntoPtr->mLeafFlag = isLeaf;
-        insertIntoPtr->mKeyNum += 1;
+        /// insertIntoPtr->mKeyNum += 1;
     }
 
     /// Add new node to the cache.
@@ -1058,8 +1076,9 @@ BSTNode* BPlusTree::SplitBTreeNode(BTreeNode *node, BSTNode *bstNodePtr,
     
     ++mCachedNodeNum;
     if (mCachedNodeNum > MAX_CACHED_NODE_NUM) {
-        /// TODO - Write dirty and least recently used BTree Nodes back to
+        /// Write dirty and least recently used BTree Nodes back to
         /// db file.
+        FlushCache();
     }
 
     if (cacheInsertErr || copyBSTNodeErr) {
@@ -1070,8 +1089,7 @@ BSTNode* BPlusTree::SplitBTreeNode(BTreeNode *node, BSTNode *bstNodePtr,
         UpdateBitMap(newNodePtr->mOffsetID, false);
         /// re-insert original key back to original leaf node.
         for (size_t i = splitterPos; i < keyVec.size(); ++i) {
-            BSTInsertNode(node->mRoot, keyVec[i], node);
-            node->mKeyNum += 1;
+            BSTInsertNodeWrapper(node->mRoot, keyVec[i], node);
         }
         /// set newLeaf's mRoot to null, so keys in newLeaf will not be deleted.
         newNodePtr->mRoot = NULL;
@@ -1590,7 +1608,6 @@ bool BPlusTree::BTreeNode2Bin(BTreeNode *ptr, string &str)
 }
 
 
-/// TODO - UT
 bool BPlusTree::Commit()
 {
     LOG_CALL();
@@ -1673,7 +1690,6 @@ void BPlusTree::ClearMinorRollbackCache()
     mRemovedBTreeNodeSet.Clear();
 }
 
-/// TODO - UT
 bool BPlusTree::InsertRollback()
 {
     LOG_CALL();
@@ -1709,7 +1725,6 @@ bool BPlusTree::InsertRollback()
 }
 
 
-/// TODO - UT
 bool BPlusTree::RemoveRollback()
 {
     LOG_CALL();
@@ -1723,5 +1738,20 @@ bool BPlusTree::RemoveRollback()
     }
     /// clear minor rollback cache
     mRemovedBTreeNodeSet.Clear();
+    return true;
+}
+
+bool BPlusTree::BSTInsertNodeWrapper(BSTNode* &root, BSTNode *bstNodePtr,
+                                     BTreeNode *btreeNodePtr)
+{
+    LOG_CALL();
+    bool dupFlag = false;
+    if (!BSTInsertNode(root, bstNodePtr, btreeNodePtr, dupFlag)) {
+        LOG_ERROR("BSTInsertNode Error!");
+        return false;
+    }
+    if (!dupFlag && btreeNodePtr)
+        btreeNodePtr->mKeyNum += 1;
+
     return true;
 }
