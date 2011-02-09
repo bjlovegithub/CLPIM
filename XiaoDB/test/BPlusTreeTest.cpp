@@ -881,4 +881,52 @@ bool RemoveRollbackTest(void)
 }
 ADD_CASE(RemoveRollbackTest);
 
+bool SearchBSTTest(void)
+{
+    BPlusTree bpt;
+    BSTNode *root = NULL;
+    BSTNode *node1Ptr = new BSTNode;
+    node1Ptr->mValue = new unsigned char[3];
+    node1Ptr->mValLen = 3;
+    memcpy(node1Ptr->mValue, "abc", 3);
+    bool dupFlag = false;
+    bpt.BSTInsertNode(root, node1Ptr, NULL, dupFlag);
+
+    BSTNode *node2Ptr = new BSTNode;
+    node2Ptr->mValue = new unsigned char[2];
+    node2Ptr->mValLen = 2;
+    memcpy(node2Ptr->mValue, "bc", 2);
+    dupFlag = false;
+    bpt.BSTInsertNode(root, node2Ptr, NULL, dupFlag);
+
+    BSTNode *node3Ptr = new BSTNode;
+    node3Ptr->mValue = new unsigned char[3];
+    node3Ptr->mValLen = 3;
+    memcpy(node3Ptr->mValue, "aaa", 3);
+    dupFlag = false;
+    bpt.BSTInsertNode(root, node3Ptr, NULL, dupFlag);
+
+    {
+        Key searchKey(node3Ptr);
+        BTreeNode tmpNode;
+        tmpNode.mRoot = root;
+        BSTNode *ret = bpt.SearchBST(&tmpNode, searchKey);
+        TEST_TRUE(ret != NULL);
+        TEST_EQUAL(Key(ret).ToString(), "aaa");
+    }
+
+    /*
+    {
+        uchar key[] = "ccc";
+        Key searchKey(key, 3);
+        BTreeNode tmpNode;
+        tmpNode.mRoot = root;
+        BSTNode *ret = bpt.SearchBST(&tmpNode, searchKey);
+        TEST_TRUE(ret == NULL);
+    }
+    */
+    return true;
+}
+ADD_CASE(SearchBSTTest);
+
 REGISTER_UT(BPlusTreeTest);

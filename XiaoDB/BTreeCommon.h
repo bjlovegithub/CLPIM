@@ -25,32 +25,6 @@ namespace XiaoDB
 typedef uint64 PointerType;
 
 /**
- * struct to keep key info, including uchar array for key, and its length
- */
-struct Key
-{
-    uchar *mKey;
-    uint32 mKeyLen;
-
-    /**
-     * Ctor
-     */
-    Key();
-    Key(const uchar *key, uint8 len);
-    Key(const Key &rhs);
-
-    /**
-     * Dtor
-     */
-    ~Key();
-
-    /**
-     * Get the string representation of key
-     */
-    std::string ToString() const;
-};
-
-/**
  * Binary search tree node.
  */
 struct BTreeNode;
@@ -128,6 +102,33 @@ struct BTreeNode
     uint32 mKeyNum;
     /// Current node's offset in db file(index in mBitMap)
     PointerType mOffsetID;
+};
+
+/**
+ * struct to keep key info, including uchar array for key, and its length
+ */
+struct Key
+{
+    uchar *mKey;
+    uint32 mKeyLen;
+
+    /**
+     * Ctor
+     */
+    Key();
+    Key(BSTNode *ptr);    
+    Key(const uchar *key, uint8 len);
+    Key(const Key &rhs);
+
+    /**
+     * Dtor
+     */
+    ~Key();
+
+    /**
+     * Get the string representation of key
+     */
+    std::string ToString() const;
 };
 
 }

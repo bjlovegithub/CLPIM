@@ -37,6 +37,7 @@ bool BTreeNodeInsertSplittedKeyTest(void);
 bool CommitTest(void);
 bool InsertRollbackTest(void);
 bool RemoveRollbackTest(void);
+bool SearchBSTTest(void);
 
 namespace XiaoDB
 {
@@ -74,7 +75,13 @@ public:
      */
     bool Insert(const uchar *key, uint32 keyLen, PointerType value);
 
-    void Delete();
+    /**
+     * Delete a key from B+ tree.
+     * @param key Pointer to uchar array(key).
+     * @param keyLen Length of key.
+     * @return Return true of delete key successfully, otherwise return false.
+     */
+    bool Delete(const uchar *key, uint32 keyLen);
 
     void Search();
 
@@ -176,6 +183,21 @@ private:
     bool RecursiveInsert(BSTNode *toInsertNode, BTreeNode *currNodePtr,
                          bool &hasNewKey, BSTNode* &newKey,
                          std::pair<PointerType, PointerType> &ptrInfo);
+
+    /**
+     * Delete a key from B+ tree, this function is called by @Delete.
+     * During the deletion, if some node's order does not meet B+ tree requirement,
+     * key redistribution will be taken. Assume to-delete key is in BTreeNode A.
+     * After deletion, A's order does not meet min-order requirement for B+ tree.
+     * If it is Ok to insert all A's left key into its sibling BTreeNode, then
+     * all A's key will be inserted into its sibling node, and their parent node's
+     * key will be updated. If not, then A will get some keys from its sibling node.
+     * @param key @Key keeps key uchar array and its length.
+     * @param currNodePtr Current BTreeNode.
+     * @return Return true if operation is carried out successfully, otherwise return
+     *         false.
+     */
+    bool RecursiveDelete(const Key &key, BTreeNode *currNodePtr);
 
     /**
      * Split the BTree node into two new node by the middle key of the BST.
@@ -347,6 +369,14 @@ private:
      * @return True for operating successfully, false for errous.
      */
     bool BTreeNode2Bin(BTreeNode *ptr, string &str);
+
+    /**
+     * Search BST against input parameter.
+     * @param ptr ptr contains root pointer to BST.
+     * @param key Key to search
+     * @return Return a pointer to the matched key, otherwise return NULL.
+     */
+    BSTNode* SearchBST(BTreeNode *ptr, const Key &key);
     
     
 private:
@@ -427,6 +457,7 @@ friend bool ::BTreeNodeInsertSplittedKeyTest(void);
 friend bool ::CommitTest(void);
 friend bool ::InsertRollbackTest(void);
 friend bool ::RemoveRollbackTest(void);
+friend bool ::SearchBSTTest(void);
 
 };
 

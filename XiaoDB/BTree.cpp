@@ -83,10 +83,31 @@ Key::Key()
     mKeyLen = 0;
 }
 
+Key::Key(BSTNode *ptr)
+{
+    if (NULL == ptr) {
+        mKey = NULL;
+        mKeyLen = 0;
+        return;
+    }
+
+    mKeyLen = ptr->mValLen;
+    mKey = new (nothrow) uchar[ptr->mValLen];
+    if (NULL == mKey) {
+        mKey = NULL;
+        mKeyLen = 0;
+        LOG_ERROR("Memory alloation error");
+        return;
+    }
+    memcpy(mKey, ptr->mValue, mKeyLen);
+}
+
 Key::Key(const uchar *key, uint8 len)
 {
     mKey = new (nothrow) uchar[len];
     if (NULL == mKey) {
+        mKey = NULL;
+        mKeyLen = 0;
         LOG_ERROR("Memory alloation error");
         return;
     }
@@ -1755,3 +1776,59 @@ bool BPlusTree::BSTInsertNodeWrapper(BSTNode* &root, BSTNode *bstNodePtr,
 
     return true;
 }
+
+/// TODO: UT
+bool BPlusTree::Delete(const uchar *key, uint32 keyLen)
+{
+    LOG_CALL();
+
+    /// clear cached b+ tree node in minor rollback cache
+    ClearMinorRollbackCache();
+
+    /// delete key from b+ tree recursivly, and adjust some nodes(redistribute).
+    if (!RecursiveDelete(Key(key, keyLen), mRootPtr)) {
+        LOG_ERROR("Delete key from B+ tree error, key: " <<
+                  Key(key, keyLen).ToString());
+        return false;
+    }
+
+    return true;
+}
+
+
+/// TODO - UT
+bool BPlusTree::RecursiveDelete(const Key &key, BTreeNode *currNodePtr)
+{
+    LOG_CALL();
+
+    /// if current node is leaf node, just find the key and remove it!
+    if (currNodePtr->mLeafFlag) {
+        
+    }
+    
+
+    return true;
+}
+
+/// TODO - UT
+BSTNode* BPlusTree::SearchBST(BTreeNode *ptr, const Key &key)
+{
+    LOG_CALL();
+
+    BSTNode *bstPtr = ptr->mRoot;
+    while (bstPtr) {
+        /// cout << bstPtr->mValue << endl; /// debug
+        int8 cmpRet = BitComparer(bstPtr->mValue, bstPtr->mValLen,
+                                  key.mKey, key.mKeyLen);
+        cout << cmpRet << endl; /// debug
+        if (0 == cmpRet)
+            return bstPtr;
+        else if (1 == cmpRet)
+            bstPtr = bstPtr->mLeft;
+        else
+            bstPtr = bstPtr->mRight;
+    }
+
+    return bstPtr;
+}
+
