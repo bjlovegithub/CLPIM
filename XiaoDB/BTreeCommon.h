@@ -50,6 +50,11 @@ struct BSTNode
 
     bool IsOk();
 
+    /**
+     * String repr of key
+     */
+    void ToString();
+
     BSTNode *mLeft, *mRight;
     /// Key
     unsigned char *mValue;
@@ -104,6 +109,9 @@ struct BTreeNode
     PointerType mOffsetID;
 };
 
+typedef BSTNode* BSTNodePtr;
+typedef BTreeNode* BTreeNodePtr;
+
 /**
  * struct to keep key info, including uchar array for key, and its length
  */
@@ -129,6 +137,11 @@ struct Key
      * Get the string representation of key
      */
     std::string ToString() const;
+
+    /**
+     * operator ==
+     */
+    bool operator==(const Key &rhs);
 };
 
 }

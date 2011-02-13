@@ -905,26 +905,23 @@ bool SearchBSTTest(void)
     memcpy(node3Ptr->mValue, "aaa", 3);
     dupFlag = false;
     bpt.BSTInsertNode(root, node3Ptr, NULL, dupFlag);
-
+    
+    BTreeNode tmpNode;
+    tmpNode.mRoot = root;
     {
         Key searchKey(node3Ptr);
-        BTreeNode tmpNode;
-        tmpNode.mRoot = root;
         BSTNode *ret = bpt.SearchBST(&tmpNode, searchKey);
         TEST_TRUE(ret != NULL);
         TEST_EQUAL(Key(ret).ToString(), "aaa");
     }
 
-    /*
     {
         uchar key[] = "ccc";
         Key searchKey(key, 3);
-        BTreeNode tmpNode;
-        tmpNode.mRoot = root;
         BSTNode *ret = bpt.SearchBST(&tmpNode, searchKey);
         TEST_TRUE(ret == NULL);
     }
-    */
+
     return true;
 }
 ADD_CASE(SearchBSTTest);

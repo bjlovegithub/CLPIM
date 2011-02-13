@@ -194,10 +194,12 @@ private:
      * key will be updated. If not, then A will get some keys from its sibling node.
      * @param key @Key keeps key uchar array and its length.
      * @param currNodePtr Current BTreeNode.
+     * @param parentPtr Pointer to parent BTreeNode.
      * @return Return true if operation is carried out successfully, otherwise return
      *         false.
      */
-    bool RecursiveDelete(const Key &key, BTreeNode *currNodePtr);
+    bool RecursiveDelete(const Key &key, BTreeNode *currNodePtr,
+                         BTreeNodePtr parentPtr);
 
     /**
      * Split the BTree node into two new node by the middle key of the BST.
@@ -287,7 +289,7 @@ private:
     bool ModifiedBTreeNodeBackup(BTreeNode *ptr);
 
     /**
-     * Just link ModifiedBTreeNodeBackup, this function
+     * Just like ModifiedBTreeNodeBackup, this function
      * copys the removde BTreeNode and insert into mRemovedBTreeNodeSet.
      */
     bool RemovedBTreeNodeBackup(BTreeNode *ptr);
@@ -377,6 +379,14 @@ private:
      * @return Return a pointer to the matched key, otherwise return NULL.
      */
     BSTNode* SearchBST(BTreeNode *ptr, const Key &key);
+
+    /**
+     * Simply remove a BSTNode(key) from BTreeNode.
+     * @param btreeNodePtr Pointer to current btree node.
+     * @param key To-del key.
+     * @return True for success, false for failure.
+     */
+    bool RemoveKeyFromBTreeNode(BTreeNodePtr btreeNodePtr, const Key &key);
     
     
 private:

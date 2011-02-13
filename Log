@@ -26,6 +26,8 @@ Feb/6/2011
 1. Fix insert duplicated key error caused by wrong mKeyNum increasement for BTreeNode.
 Feb/09/2011
 1. Add key remove related codes. But BPlusTreeTest UT failed.
+Feb/10/2011
+1. Add key remove related codes.
 
 TODO:
 1. Modify UT to test all key number in BPTree.

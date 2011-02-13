@@ -65,6 +65,18 @@ void DFSKeysAndValues(BSTNode *ptr, vector<Key> &keys,
 }
 
 /**
+ * Get all BSTNode in BST
+ */
+void DFSGetBSTNodes(BSTNodePtr ptr, vector<BSTNodePtr> &ret)
+{
+    if (NULL == ptr)
+        return;
+    ret.push_back(ptr);
+    DFSGetBSTNodes(ptr->mLeft);
+    DFSGetBSTNodes(ptr->mRight);
+}
+
+/**
  * Destroy the whole Binary Search Tree(free memory).
  */
 void DestroyBST(BSTNode *root)
@@ -140,6 +152,13 @@ string Key::ToString() const
     return s;
 }
 
+bool Key::operator==(const Key &rhs)
+{
+    int8 cmpRet = BitComparer(this->mKey, this->mKeyLen,
+                              rhs.mKey, rhs.mKeyLen);
+    return (cmpRet == 0);
+}
+
 /*** Node related member function ***/
 BSTNode::BSTNode()
 {
@@ -166,6 +185,14 @@ BSTNode::BSTNode(const uchar *key, uint32 keyLen, PointerType val)
 bool BSTNode::IsOk()
 {
     return mIsOk;
+}
+
+string BSTNode::ToString()
+{
+    string s(mValLen, 'a');
+    for (size_t i = 0; i < mValLen; ++i)
+        s[i] = mValue[i];
+    return s;
 }
 
 BSTNode::~BSTNode()
@@ -1797,30 +1824,42 @@ bool BPlusTree::Delete(const uchar *key, uint32 keyLen)
 
 
 /// TODO - UT
-bool BPlusTree::RecursiveDelete(const Key &key, BTreeNode *currNodePtr)
+bool BPlusTree::RecursiveDelete(const Key &key, BTreeNode *currNodePtr,
+                                BTreeNodePtr parentPtr)
 {
     LOG_CALL();
 
     /// if current node is leaf node, just find the key and remove it!
     if (currNodePtr->mLeafFlag) {
-        
+        BSTNodePtr ptr = SearchBST(currNodePtr, key);
+        if (NULL == ptr) {
+            LOG_INFO("Key: " << key.ToString() << " not in B+ tree");
+            return true;
+        }
+        else {
+            /// make a backup of current node.
+            ModifiedBTreeNodeBackup(currNodePtr);
+            /// remove to-del key from leaf node.
+            if (!RemoveKeyFromBTreeNode(currNodePtr, key)) {
+                LOG_ERROR("RemoveKeyFromBTreeNode error, key: " << key.ToString());
+                return false;
+            }
+            /// TODO
+        }
     }
     
 
     return true;
 }
 
-/// TODO - UT
 BSTNode* BPlusTree::SearchBST(BTreeNode *ptr, const Key &key)
 {
     LOG_CALL();
 
     BSTNode *bstPtr = ptr->mRoot;
     while (bstPtr) {
-        /// cout << bstPtr->mValue << endl; /// debug
         int8 cmpRet = BitComparer(bstPtr->mValue, bstPtr->mValLen,
                                   key.mKey, key.mKeyLen);
-        cout << cmpRet << endl; /// debug
         if (0 == cmpRet)
             return bstPtr;
         else if (1 == cmpRet)
@@ -1832,3 +1871,28 @@ BSTNode* BPlusTree::SearchBST(BTreeNode *ptr, const Key &key)
     return bstPtr;
 }
 
+/// TODO - UT
+bool BPlusTree::RemoveKeyFromBTreeNode(BTreeNodePtr btreeNodePtr, const Key &key)
+{
+    /// this is an simple implementation, we just get all keys into an array,
+    /// and insert them back except to-del key.
+    vector<BSTNodePtr> keySet;
+    DFSGetBSTNodes(btreeNodePtr->mRoot, keySet);
+
+    btreeNodePtr->mRoot = NULL;
+    bool dummy = false;
+    BSTNodePtr toDelBSTNodePtr = NULL;
+    for (size_t i = 0; i < keySet.size(); ++i) {
+        int8 cmpRet = BitComparer(keySet[i].mValue, keySet[i].mValLen,
+                                  key.mKey, key.mKeyLen);
+        if (cmpRet != 0)
+            BSTInsertNode(btreeNodePtr->mRoot, keySet[i], btreeNodePtr, dummy);
+        else
+            toDelBSTNodePtr = keySet[i];
+    }
+    LOG_DEBUG("To remove key: " << toDelBSTNodePtr->ToString());
+
+    delete toDelBSTNodePtr;
+    
+    return true;
+}

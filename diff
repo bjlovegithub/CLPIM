@@ -1,819 +1,1068 @@
 diff --git a/XiaoDB/BTree.cpp b/XiaoDB/BTree.cpp
-index eeff75c..66f516c 100644
+index 66f516c..195cb98 100644
 --- a/XiaoDB/BTree.cpp
 +++ b/XiaoDB/BTree.cpp
-@@ -83,10 +83,31 @@ Key::Key()
-     mKeyLen = 0;
+@@ -65,6 +65,18 @@ void DFSKeysAndValues(BSTNode *ptr, vector<Key> &keys,
  }
  
-+Key::Key(BSTNode *ptr)
+ /**
++ * Get all BSTNode in BST
++ */
++void DFSGetBSTNodes(BSTNodePtr ptr, vector<BSTNodePtr> &ret)
 +{
-+    if (NULL == ptr) {
-+        mKey = NULL;
-+        mKeyLen = 0;
++    if (NULL == ptr)
 +        return;
-+    }
-+
-+    mKeyLen = ptr->mValLen;
-+    mKey = new (nothrow) uchar[ptr->mValLen];
-+    if (NULL == mKey) {
-+        mKey = NULL;
-+        mKeyLen = 0;
-+        LOG_ERROR("Memory alloation error");
-+        return;
-+    }
-+    memcpy(mKey, ptr->mValue, mKeyLen);
++    ret.push_back(ptr);
++    DFSGetBSTNodes(ptr->mLeft);
++    DFSGetBSTNodes(ptr->mRight);
 +}
 +
- Key::Key(const uchar *key, uint8 len)
++/**
+  * Destroy the whole Binary Search Tree(free memory).
+  */
+ void DestroyBST(BSTNode *root)
+@@ -140,6 +152,13 @@ string Key::ToString() const
+     return s;
+ }
+ 
++bool Key::operator==(const Key &rhs)
++{
++    int8 cmpRet = BitComparer(this->mKey, this->mKeyLen,
++                              rhs.mKey, rhs.mKeyLen);
++    return (cmpRet == 0);
++}
++
+ /*** Node related member function ***/
+ BSTNode::BSTNode()
  {
-     mKey = new (nothrow) uchar[len];
-     if (NULL == mKey) {
-+        mKey = NULL;
-+        mKeyLen = 0;
-         LOG_ERROR("Memory alloation error");
-         return;
+@@ -168,6 +187,14 @@ bool BSTNode::IsOk()
+     return mIsOk;
+ }
+ 
++string BSTNode::ToString()
++{
++    string s(mValLen, 'a');
++    for (size_t i = 0; i < mValLen; ++i)
++        s[i] = mValue[i];
++    return s;
++}
++
+ BSTNode::~BSTNode()
+ {
+     delete[] mValue;
+@@ -1797,30 +1824,42 @@ bool BPlusTree::Delete(const uchar *key, uint32 keyLen)
+ 
+ 
+ /// TODO - UT
+-bool BPlusTree::RecursiveDelete(const Key &key, BTreeNode *currNodePtr)
++bool BPlusTree::RecursiveDelete(const Key &key, BTreeNode *currNodePtr,
++                                BTreeNodePtr parentPtr)
+ {
+     LOG_CALL();
+ 
+     /// if current node is leaf node, just find the key and remove it!
+     if (currNodePtr->mLeafFlag) {
+-        
++        BSTNodePtr ptr = SearchBST(currNodePtr, key);
++        if (NULL == ptr) {
++            LOG_INFO("Key: " << key.ToString() << " not in B+ tree");
++            return true;
++        }
++        else {
++            /// make a backup of current node.
++            ModifiedBTreeNodeBackup(currNodePtr);
++            /// remove to-del key from leaf node.
++            if (!RemoveKeyFromBTreeNode(currNodePtr, key)) {
++                LOG_ERROR("RemoveKeyFromBTreeNode error, key: " << key.ToString());
++                return false;
++            }
++            /// TODO
++        }
      }
-@@ -1755,3 +1776,59 @@ bool BPlusTree::BSTInsertNodeWrapper(BSTNode* &root, BSTNode *bstNodePtr,
+     
  
      return true;
  }
-+
-+/// TODO: UT
-+bool BPlusTree::Delete(const uchar *key, uint32 keyLen)
-+{
-+    LOG_CALL();
-+
-+    /// clear cached b+ tree node in minor rollback cache
-+    ClearMinorRollbackCache();
-+
-+    /// delete key from b+ tree recursivly, and adjust some nodes(redistribute).
-+    if (!RecursiveDelete(Key(key, keyLen), mRootPtr)) {
-+        LOG_ERROR("Delete key from B+ tree error, key: " <<
-+                  Key(key, keyLen).ToString());
-+        return false;
-+    }
-+
-+    return true;
-+}
-+
-+
+ 
+-/// TODO - UT
+ BSTNode* BPlusTree::SearchBST(BTreeNode *ptr, const Key &key)
+ {
+     LOG_CALL();
+ 
+     BSTNode *bstPtr = ptr->mRoot;
+     while (bstPtr) {
+-        /// cout << bstPtr->mValue << endl; /// debug
+         int8 cmpRet = BitComparer(bstPtr->mValue, bstPtr->mValLen,
+                                   key.mKey, key.mKeyLen);
+-        cout << cmpRet << endl; /// debug
+         if (0 == cmpRet)
+             return bstPtr;
+         else if (1 == cmpRet)
+@@ -1832,3 +1871,28 @@ BSTNode* BPlusTree::SearchBST(BTreeNode *ptr, const Key &key)
+     return bstPtr;
+ }
+ 
 +/// TODO - UT
-+bool BPlusTree::RecursiveDelete(const Key &key, BTreeNode *currNodePtr)
++bool BPlusTree::RemoveKeyFromBTreeNode(BTreeNodePtr btreeNodePtr, const Key &key)
 +{
-+    LOG_CALL();
++    /// this is an simple implementation, we just get all keys into an array,
++    /// and insert them back except to-del key.
++    vector<BSTNodePtr> keySet;
++    DFSGetBSTNodes(btreeNodePtr->mRoot, keySet);
 +
-+    /// if current node is leaf node, just find the key and remove it!
-+    if (currNodePtr->mLeafFlag) {
-+        
-+    }
-+    
-+
-+    return true;
-+}
-+
-+/// TODO - UT
-+BSTNode* BPlusTree::SearchBST(BTreeNode *ptr, const Key &key)
-+{
-+    LOG_CALL();
-+
-+    BSTNode *bstPtr = ptr->mRoot;
-+    while (bstPtr) {
-+        /// cout << bstPtr->mValue << endl; /// debug
-+        int8 cmpRet = BitComparer(bstPtr->mValue, bstPtr->mValLen,
++    btreeNodePtr->mRoot = NULL;
++    bool dummy = false;
++    BSTNodePtr toDelBSTNodePtr = NULL;
++    for (size_t i = 0; i < keySet.size(); ++i) {
++        int8 cmpRet = BitComparer(keySet[i].mValue, keySet[i].mValLen,
 +                                  key.mKey, key.mKeyLen);
-+        cout << cmpRet << endl; /// debug
-+        if (0 == cmpRet)
-+            return bstPtr;
-+        else if (1 == cmpRet)
-+            bstPtr = bstPtr->mLeft;
++        if (cmpRet != 0)
++            BSTInsertNode(btreeNodePtr->mRoot, keySet[i], btreeNodePtr, dummy);
 +        else
-+            bstPtr = bstPtr->mRight;
++            toDelBSTNodePtr = keySet[i];
 +    }
++    LOG_DEBUG("To remove key: " << toDelBSTNodePtr->ToString());
 +
-+    return bstPtr;
++    delete toDelBSTNodePtr;
++    
++    return true;
 +}
-+
 diff --git a/XiaoDB/BTree.h b/XiaoDB/BTree.h
-index 5b3271d..3cb1fd3 100644
+index 3cb1fd3..9039f75 100644
 --- a/XiaoDB/BTree.h
 +++ b/XiaoDB/BTree.h
-@@ -37,6 +37,7 @@ bool BTreeNodeInsertSplittedKeyTest(void);
- bool CommitTest(void);
- bool InsertRollbackTest(void);
- bool RemoveRollbackTest(void);
-+bool SearchBSTTest(void);
- 
- namespace XiaoDB
- {
-@@ -74,7 +75,13 @@ public:
+@@ -194,10 +194,12 @@ private:
+      * key will be updated. If not, then A will get some keys from its sibling node.
+      * @param key @Key keeps key uchar array and its length.
+      * @param currNodePtr Current BTreeNode.
++     * @param parentPtr Pointer to parent BTreeNode.
+      * @return Return true if operation is carried out successfully, otherwise return
+      *         false.
       */
-     bool Insert(const uchar *key, uint32 keyLen, PointerType value);
- 
--    void Delete();
-+    /**
-+     * Delete a key from B+ tree.
-+     * @param key Pointer to uchar array(key).
-+     * @param keyLen Length of key.
-+     * @return Return true of delete key successfully, otherwise return false.
-+     */
-+    bool Delete(const uchar *key, uint32 keyLen);
- 
-     void Search();
- 
-@@ -178,6 +185,21 @@ private:
-                          std::pair<PointerType, PointerType> &ptrInfo);
+-    bool RecursiveDelete(const Key &key, BTreeNode *currNodePtr);
++    bool RecursiveDelete(const Key &key, BTreeNode *currNodePtr,
++                         BTreeNodePtr parentPtr);
  
      /**
-+     * Delete a key from B+ tree, this function is called by @Delete.
-+     * During the deletion, if some node's order does not meet B+ tree requirement,
-+     * key redistribution will be taken. Assume to-delete key is in BTreeNode A.
-+     * After deletion, A's order does not meet min-order requirement for B+ tree.
-+     * If it is Ok to insert all A's left key into its sibling BTreeNode, then
-+     * all A's key will be inserted into its sibling node, and their parent node's
-+     * key will be updated. If not, then A will get some keys from its sibling node.
-+     * @param key @Key keeps key uchar array and its length.
-+     * @param currNodePtr Current BTreeNode.
-+     * @return Return true if operation is carried out successfully, otherwise return
-+     *         false.
-+     */
-+    bool RecursiveDelete(const Key &key, BTreeNode *currNodePtr);
-+
-+    /**
       * Split the BTree node into two new node by the middle key of the BST.
-      * @param currNodePtr Pointer to the to be splitted BPlusTree node.
-      * @param bstNodePtr To be inserted node pointer
-@@ -347,6 +369,14 @@ private:
-      * @return True for operating successfully, false for errous.
+@@ -287,7 +289,7 @@ private:
+     bool ModifiedBTreeNodeBackup(BTreeNode *ptr);
+ 
+     /**
+-     * Just link ModifiedBTreeNodeBackup, this function
++     * Just like ModifiedBTreeNodeBackup, this function
+      * copys the removde BTreeNode and insert into mRemovedBTreeNodeSet.
       */
-     bool BTreeNode2Bin(BTreeNode *ptr, string &str);
+     bool RemovedBTreeNodeBackup(BTreeNode *ptr);
+@@ -377,6 +379,14 @@ private:
+      * @return Return a pointer to the matched key, otherwise return NULL.
+      */
+     BSTNode* SearchBST(BTreeNode *ptr, const Key &key);
 +
 +    /**
-+     * Search BST against input parameter.
-+     * @param ptr ptr contains root pointer to BST.
-+     * @param key Key to search
-+     * @return Return a pointer to the matched key, otherwise return NULL.
++     * Simply remove a BSTNode(key) from BTreeNode.
++     * @param btreeNodePtr Pointer to current btree node.
++     * @param key To-del key.
++     * @return True for success, false for failure.
 +     */
-+    BSTNode* SearchBST(BTreeNode *ptr, const Key &key);
++    bool RemoveKeyFromBTreeNode(BTreeNodePtr btreeNodePtr, const Key &key);
      
      
  private:
-@@ -427,6 +457,7 @@ friend bool ::BTreeNodeInsertSplittedKeyTest(void);
- friend bool ::CommitTest(void);
- friend bool ::InsertRollbackTest(void);
- friend bool ::RemoveRollbackTest(void);
-+friend bool ::SearchBSTTest(void);
- 
- };
- 
 diff --git a/XiaoDB/BTreeCommon.h b/XiaoDB/BTreeCommon.h
-index a7b201b..a98efdb 100644
+index a98efdb..976e45c 100644
 --- a/XiaoDB/BTreeCommon.h
 +++ b/XiaoDB/BTreeCommon.h
-@@ -25,32 +25,6 @@ namespace XiaoDB
- typedef uint64 PointerType;
+@@ -50,6 +50,11 @@ struct BSTNode
  
- /**
-- * struct to keep key info, including uchar array for key, and its length
-- */
--struct Key
--{
--    uchar *mKey;
--    uint32 mKeyLen;
--
--    /**
--     * Ctor
--     */
--    Key();
--    Key(const uchar *key, uint8 len);
--    Key(const Key &rhs);
--
--    /**
--     * Dtor
--     */
--    ~Key();
--
--    /**
--     * Get the string representation of key
--     */
--    std::string ToString() const;
--};
--
--/**
-  * Binary search tree node.
-  */
- struct BTreeNode;
-@@ -130,6 +104,33 @@ struct BTreeNode
+     bool IsOk();
+ 
++    /**
++     * String repr of key
++     */
++    void ToString();
++
+     BSTNode *mLeft, *mRight;
+     /// Key
+     unsigned char *mValue;
+@@ -104,6 +109,9 @@ struct BTreeNode
      PointerType mOffsetID;
  };
  
-+/**
-+ * struct to keep key info, including uchar array for key, and its length
-+ */
-+struct Key
-+{
-+    uchar *mKey;
-+    uint32 mKeyLen;
++typedef BSTNode* BSTNodePtr;
++typedef BTreeNode* BTreeNodePtr;
++
+ /**
+  * struct to keep key info, including uchar array for key, and its length
+  */
+@@ -129,6 +137,11 @@ struct Key
+      * Get the string representation of key
+      */
+     std::string ToString() const;
 +
 +    /**
-+     * Ctor
++     * operator ==
 +     */
-+    Key();
-+    Key(BSTNode *ptr);    
-+    Key(const uchar *key, uint8 len);
-+    Key(const Key &rhs);
-+
-+    /**
-+     * Dtor
-+     */
-+    ~Key();
-+
-+    /**
-+     * Get the string representation of key
-+     */
-+    std::string ToString() const;
-+};
-+
- }
++    bool operator==(const Key &rhs);
+ };
  
- #endif /// BILLJEFF_BTREE_COMMON_H
+ }
 diff --git a/XiaoDB/test/BPlusTreeTest.cpp b/XiaoDB/test/BPlusTreeTest.cpp
-index 65ffbb1..674bb74 100644
+index 674bb74..378235d 100644
 --- a/XiaoDB/test/BPlusTreeTest.cpp
 +++ b/XiaoDB/test/BPlusTreeTest.cpp
-@@ -881,4 +881,52 @@ bool RemoveRollbackTest(void)
- }
- ADD_CASE(RemoveRollbackTest);
+@@ -905,26 +905,23 @@ bool SearchBSTTest(void)
+     memcpy(node3Ptr->mValue, "aaa", 3);
+     dupFlag = false;
+     bpt.BSTInsertNode(root, node3Ptr, NULL, dupFlag);
+-
++    
++    BTreeNode tmpNode;
++    tmpNode.mRoot = root;
+     {
+         Key searchKey(node3Ptr);
+-        BTreeNode tmpNode;
+-        tmpNode.mRoot = root;
+         BSTNode *ret = bpt.SearchBST(&tmpNode, searchKey);
+         TEST_TRUE(ret != NULL);
+         TEST_EQUAL(Key(ret).ToString(), "aaa");
+     }
  
-+bool SearchBSTTest(void)
-+{
-+    BPlusTree bpt;
-+    BSTNode *root = NULL;
-+    BSTNode *node1Ptr = new BSTNode;
-+    node1Ptr->mValue = new unsigned char[3];
-+    node1Ptr->mValLen = 3;
-+    memcpy(node1Ptr->mValue, "abc", 3);
-+    bool dupFlag = false;
-+    bpt.BSTInsertNode(root, node1Ptr, NULL, dupFlag);
+-    /*
+     {
+         uchar key[] = "ccc";
+         Key searchKey(key, 3);
+-        BTreeNode tmpNode;
+-        tmpNode.mRoot = root;
+         BSTNode *ret = bpt.SearchBST(&tmpNode, searchKey);
+         TEST_TRUE(ret == NULL);
+     }
+-    */
 +
-+    BSTNode *node2Ptr = new BSTNode;
-+    node2Ptr->mValue = new unsigned char[2];
-+    node2Ptr->mValLen = 2;
-+    memcpy(node2Ptr->mValue, "bc", 2);
-+    dupFlag = false;
-+    bpt.BSTInsertNode(root, node2Ptr, NULL, dupFlag);
-+
-+    BSTNode *node3Ptr = new BSTNode;
-+    node3Ptr->mValue = new unsigned char[3];
-+    node3Ptr->mValLen = 3;
-+    memcpy(node3Ptr->mValue, "aaa", 3);
-+    dupFlag = false;
-+    bpt.BSTInsertNode(root, node3Ptr, NULL, dupFlag);
-+
-+    {
-+        Key searchKey(node3Ptr);
-+        BTreeNode tmpNode;
-+        tmpNode.mRoot = root;
-+        BSTNode *ret = bpt.SearchBST(&tmpNode, searchKey);
-+        TEST_TRUE(ret != NULL);
-+        TEST_EQUAL(Key(ret).ToString(), "aaa");
-+    }
-+
-+    /*
-+    {
-+        uchar key[] = "ccc";
-+        Key searchKey(key, 3);
-+        BTreeNode tmpNode;
-+        tmpNode.mRoot = root;
-+        BSTNode *ret = bpt.SearchBST(&tmpNode, searchKey);
-+        TEST_TRUE(ret == NULL);
-+    }
-+    */
-+    return true;
-+}
-+ADD_CASE(SearchBSTTest);
-+
- REGISTER_UT(BPlusTreeTest);
+     return true;
+ }
+ ADD_CASE(SearchBSTTest);
 diff --git a/diff b/diff
-index dc96215..fcb4701 100644
+index 2c36811..0f65320 100644
 --- a/diff
 +++ b/diff
-@@ -1,518 +0,0 @@
+@@ -1,819 +0,0 @@
 -diff --git a/XiaoDB/BTree.cpp b/XiaoDB/BTree.cpp
--index d13ac3c..65136ee 100644
+-index eeff75c..66f516c 100644
 ---- a/XiaoDB/BTree.cpp
 -+++ b/XiaoDB/BTree.cpp
--@@ -696,22 +696,9 @@ bool BPlusTree::RecursiveInsert(BSTNode *toInsertNode, BTreeNode *currNodePtr,
--     if (currNodePtr->mLeafFlag) {
--         LOG_DEBUG("Insert key in leaf");
--         if (currNodePtr->mKeyNum < MAX_ELEMENT_NUMBER) {
---            /*
---            BSTNode *ptr = new (nothrow) BSTNode;
---            if (NULL == ptr) {
---                LOG_FATAL("Memory allocation error");
---                return false;
---            }
---            ptr->mValLen = keyLen;
---            ptr->mValue = new (nothrow) uchar[keyLen];
---            if (NULL == ptr->mValue) {
---                LOG_FATAL("Memory allocation error");
---                return false;
---            }
---            memcpy(ptr->mValue, key, keyLen);
---            */
--             /// copy and put the old node into 
---            /// TODO
--+            if (!ModifiedBTreeNodeBackup(currNodePtr))
--+                return false;
--             if (!BSTInsertNode(currNodePtr->mRoot, toInsertNode, currNodePtr)) {
--                 LOG_ERROR("Key insert error");
--                 return false;
--@@ -864,6 +851,9 @@ bool BPlusTree::RecursiveInsert(BSTNode *toInsertNode, BTreeNode *currNodePtr,
--         hasNewKey = false;
--         if (currNodePtr->mKeyNum < MAX_ELEMENT_NUMBER) {
--             LOG_DEBUG("Insert new key into non-leaf node");
--+            /// make a backup for rollback
--+            if (!ModifiedBTreeNodeBackup(currNodePtr))
--+                return false;
--             bool mpFlag = false;
--             if (!BTreeNodeInsertSplittedKey(currNodePtr, newKey,
--                                             ptrInfo, mpFlag))
--@@ -904,6 +894,10 @@ BSTNode* BPlusTree::SplitBTreeNode(BTreeNode *node, BSTNode *bstNodePtr,
--     if (NULL == bstNodePtr)
--         return NULL;
-- 
--+    /// make a copy of to-be splitted nodes
--+    if (!ModifiedBTreeNodeBackup(node))
--+        return false;
--+    
--     BSTNode *retPtr = NULL;
-- 
--     bool cacheInsertErr, copyBSTNodeErr;
--@@ -1092,6 +1086,9 @@ BSTNode* BPlusTree::SplitBTreeNode(BTreeNode *node, BSTNode *bstNodePtr,
--     ptrInfo.second = newNodePtr->mOffsetID;
--     LOG_DEBUG("New node offset(in bitmap): " << newNodePtr->mOffsetID);
-- 
--+    /// record the new generated node into set for rollback
--+    mNewBTreeNodeSet.insert(newNodePtr->mOffsetID);
--+
--     return retPtr;
+-@@ -83,10 +83,31 @@ Key::Key()
+-     mKeyLen = 0;
 - }
 - 
--@@ -1612,3 +1609,53 @@ bool BPlusTree::Commit()
+-+Key::Key(BSTNode *ptr)
+-+{
+-+    if (NULL == ptr) {
+-+        mKey = NULL;
+-+        mKeyLen = 0;
+-+        return;
+-+    }
+-+
+-+    mKeyLen = ptr->mValLen;
+-+    mKey = new (nothrow) uchar[ptr->mValLen];
+-+    if (NULL == mKey) {
+-+        mKey = NULL;
+-+        mKeyLen = 0;
+-+        LOG_ERROR("Memory alloation error");
+-+        return;
+-+    }
+-+    memcpy(mKey, ptr->mValue, mKeyLen);
+-+}
+-+
+- Key::Key(const uchar *key, uint8 len)
+- {
+-     mKey = new (nothrow) uchar[len];
+-     if (NULL == mKey) {
+-+        mKey = NULL;
+-+        mKeyLen = 0;
+-         LOG_ERROR("Memory alloation error");
+-         return;
 -     }
+-@@ -1755,3 +1776,59 @@ bool BPlusTree::BSTInsertNodeWrapper(BSTNode* &root, BSTNode *bstNodePtr,
+- 
 -     return true;
 - }
 -+
--+bool BPlusTree::ModifiedBTreeNodeBackup(BTreeNode *ptr)
+-+/// TODO: UT
+-+bool BPlusTree::Delete(const uchar *key, uint32 keyLen)
 -+{
 -+    LOG_CALL();
--+    BTreeNode *copiedPtr = NULL;
--+    if (!(CopyBTreeNode(copiedPtr, ptr))) {
--+        LOG_ERROR("Copy BTreeNode Error!");
+-+
+-+    /// clear cached b+ tree node in minor rollback cache
+-+    ClearMinorRollbackCache();
+-+
+-+    /// delete key from b+ tree recursivly, and adjust some nodes(redistribute).
+-+    if (!RecursiveDelete(Key(key, keyLen), mRootPtr)) {
+-+        LOG_ERROR("Delete key from B+ tree error, key: " <<
+-+                  Key(key, keyLen).ToString());
 -+        return false;
 -+    }
--+    mModifiedBTreeNodeSet.AddNode(copiedPtr, copiedPtr->mOffsetID);
+-+
 -+    return true;
 -+}
 -+
--+bool BPlusTree::RemovedBTreeNodeBackup(BTreeNode *ptr)
+-+
+-+/// TODO - UT
+-+bool BPlusTree::RecursiveDelete(const Key &key, BTreeNode *currNodePtr)
 -+{
 -+    LOG_CALL();
--+    BTreeNode *copiedPtr = NULL;
--+    if (!(CopyBTreeNode(copiedPtr, ptr))) {
--+        LOG_ERROR("Copy BTreeNode Error!");
--+        return false;
+-+
+-+    /// if current node is leaf node, just find the key and remove it!
+-+    if (currNodePtr->mLeafFlag) {
+-+        
 -+    }
--+    mRemovedBTreeNodeSet.AddNode(copiedPtr, copiedPtr->mOffsetID);
+-+    
+-+
 -+    return true;
--+}
--+
--+void BPlusTree::ClearMinorRollbackCache()
--+{
--+    /// clear new generated node set
--+    mNewBTreeNodeSet.clear();
--+    /// for mModifiedBTreeNodeSet and mRemovedBTreeNodeSet, if rollback happened,
--+    /// then related rollback action will clear these two sets.
--+    vector<PointerType> s;
--+    s = mModifiedBTreeNodeSet.GetAllCachedNodes();
--+    for (size_t i = 0; i < s.size(); ++i) {
--+        BTreeNode *ptr = mModifiedBTreeNodeSet.GetNode(s[i]);
--+        delete ptr;
--+    }
--+
--+    s = mRemovedBTreeNodeSet.GetAllCachedNodes();
--+    for (size_t i = 0; i < s.size(); ++i) {
--+        BTreeNode *ptr = mRemovedBTreeNodeSet.GetNode(s[i]);
--+        delete ptr;
--+    }
 -+}
 -+
 -+/// TODO - UT
--+bool InsertRollback()
+-+BSTNode* BPlusTree::SearchBST(BTreeNode *ptr, const Key &key)
 -+{
--+    
+-+    LOG_CALL();
+-+
+-+    BSTNode *bstPtr = ptr->mRoot;
+-+    while (bstPtr) {
+-+        /// cout << bstPtr->mValue << endl; /// debug
+-+        int8 cmpRet = BitComparer(bstPtr->mValue, bstPtr->mValLen,
+-+                                  key.mKey, key.mKeyLen);
+-+        cout << cmpRet << endl; /// debug
+-+        if (0 == cmpRet)
+-+            return bstPtr;
+-+        else if (1 == cmpRet)
+-+            bstPtr = bstPtr->mLeft;
+-+        else
+-+            bstPtr = bstPtr->mRight;
+-+    }
+-+
+-+    return bstPtr;
 -+}
+-+
 -diff --git a/XiaoDB/BTree.h b/XiaoDB/BTree.h
--index d30aaa9..cafcd1d 100644
+-index 5b3271d..3cb1fd3 100644
 ---- a/XiaoDB/BTree.h
 -+++ b/XiaoDB/BTree.h
--@@ -11,6 +11,7 @@
+-@@ -37,6 +37,7 @@ bool BTreeNodeInsertSplittedKeyTest(void);
+- bool CommitTest(void);
+- bool InsertRollbackTest(void);
+- bool RemoveRollbackTest(void);
+-+bool SearchBSTTest(void);
 - 
-- #include <string>
-- #include <vector>
--+#include <set>
-- 
-- #include "FileUtil.h"
-- #include "CommonInclude.h"
--@@ -246,6 +247,19 @@ private:
--     bool CopyBTreeNode(BTreeNode* &destPtr, BTreeNode *ptr);
-- 
--     /**
--+     * Copy the modified BTreeNode and insert into mModifiedBTreeNodeSet.
--+     * @param ptr Original BTreeNode pointer.
--+     * @return True for success, false for failure.
--+     */
--+    bool ModifiedBTreeNodeBackup(BTreeNode *ptr);
--+
--+    /**
--+     * Just link ModifiedBTreeNodeBackup, this function
--+     * copys the removde BTreeNode and insert into mRemovedBTreeNodeSet.
--+     */
--+    bool RemovedBTreeNodeBackup(BTreeNode *ptr);
--+
--+    /**
--      * Insert new key into BST, and get info about the inserted key is max/min
--      * key in BST, and its subsequent key.
--      * @param rootPtr Pointer to BST.
--@@ -286,9 +300,17 @@ private:
--      * into mModifiedBTreeNodeSet;
--      * For BTree Remove failure, removed nodes will be inserted into 
--      * mRemovedBTreeNodeSet.
--+     * InsertRollback can be used to one time insert/update rollback.
--+     * RemoveRollback can be used to one time remove failure rollback.
--+     */
--+    bool InsertRollback();
--+    bool RemoveRollback();
--+
--+    /**
--+     * Clear all contents in minor change cache(mModifiedBTreeNodeSet,
--+     * mRemovedBTreeNodeSet, mNewBTreeNodeSet) which are used by minor rollback.
+- namespace XiaoDB
+- {
+-@@ -74,7 +75,13 @@ public:
 -      */
---    /// TODO
---    bool MinorRollback();
--+    void ClearMinorRollbackCache();
+-     bool Insert(const uchar *key, uint32 keyLen, PointerType value);
+- 
+--    void Delete();
+-+    /**
+-+     * Delete a key from B+ tree.
+-+     * @param key Pointer to uchar array(key).
+-+     * @param keyLen Length of key.
+-+     * @return Return true of delete key successfully, otherwise return false.
+-+     */
+-+    bool Delete(const uchar *key, uint32 keyLen);
+- 
+-     void Search();
+- 
+-@@ -178,6 +185,21 @@ private:
+-                          std::pair<PointerType, PointerType> &ptrInfo);
 - 
 -     /**
--      * Dump all keys and values in BTree.
--@@ -366,7 +388,7 @@ private:
--     /// see the function instruction for @MinorRollback.
--     TreeNodeCacheManager mModifiedBTreeNodeSet;
--     TreeNodeCacheManager mRemovedBTreeNodeSet;
---    std::vector<PointerType> mNewBTreeNodeSet;
--+    std::set<PointerType> mNewBTreeNodeSet;
+-+     * Delete a key from B+ tree, this function is called by @Delete.
+-+     * During the deletion, if some node's order does not meet B+ tree requirement,
+-+     * key redistribution will be taken. Assume to-delete key is in BTreeNode A.
+-+     * After deletion, A's order does not meet min-order requirement for B+ tree.
+-+     * If it is Ok to insert all A's left key into its sibling BTreeNode, then
+-+     * all A's key will be inserted into its sibling node, and their parent node's
+-+     * key will be updated. If not, then A will get some keys from its sibling node.
+-+     * @param key @Key keeps key uchar array and its length.
+-+     * @param currNodePtr Current BTreeNode.
+-+     * @return Return true if operation is carried out successfully, otherwise return
+-+     *         false.
+-+     */
+-+    bool RecursiveDelete(const Key &key, BTreeNode *currNodePtr);
+-+
+-+    /**
+-      * Split the BTree node into two new node by the middle key of the BST.
+-      * @param currNodePtr Pointer to the to be splitted BPlusTree node.
+-      * @param bstNodePtr To be inserted node pointer
+-@@ -347,6 +369,14 @@ private:
+-      * @return True for operating successfully, false for errous.
+-      */
+-     bool BTreeNode2Bin(BTreeNode *ptr, string &str);
+-+
+-+    /**
+-+     * Search BST against input parameter.
+-+     * @param ptr ptr contains root pointer to BST.
+-+     * @param key Key to search
+-+     * @return Return a pointer to the matched key, otherwise return NULL.
+-+     */
+-+    BSTNode* SearchBST(BTreeNode *ptr, const Key &key);
+-     
+-     
+- private:
+-@@ -427,6 +457,7 @@ friend bool ::BTreeNodeInsertSplittedKeyTest(void);
+- friend bool ::CommitTest(void);
+- friend bool ::InsertRollbackTest(void);
+- friend bool ::RemoveRollbackTest(void);
+-+friend bool ::SearchBSTTest(void);
 - 
--     /// During the key insert, if to-insert key is in BPTree, then this flag will
--     /// be set to true, otherwise to false;
+- };
+- 
+-diff --git a/XiaoDB/BTreeCommon.h b/XiaoDB/BTreeCommon.h
+-index a7b201b..a98efdb 100644
+---- a/XiaoDB/BTreeCommon.h
+-+++ b/XiaoDB/BTreeCommon.h
+-@@ -25,32 +25,6 @@ namespace XiaoDB
+- typedef uint64 PointerType;
+- 
+- /**
+-- * struct to keep key info, including uchar array for key, and its length
+-- */
+--struct Key
+--{
+--    uchar *mKey;
+--    uint32 mKeyLen;
+--
+--    /**
+--     * Ctor
+--     */
+--    Key();
+--    Key(const uchar *key, uint8 len);
+--    Key(const Key &rhs);
+--
+--    /**
+--     * Dtor
+--     */
+--    ~Key();
+--
+--    /**
+--     * Get the string representation of key
+--     */
+--    std::string ToString() const;
+--};
+--
+--/**
+-  * Binary search tree node.
+-  */
+- struct BTreeNode;
+-@@ -130,6 +104,33 @@ struct BTreeNode
+-     PointerType mOffsetID;
+- };
+- 
+-+/**
+-+ * struct to keep key info, including uchar array for key, and its length
+-+ */
+-+struct Key
+-+{
+-+    uchar *mKey;
+-+    uint32 mKeyLen;
+-+
+-+    /**
+-+     * Ctor
+-+     */
+-+    Key();
+-+    Key(BSTNode *ptr);    
+-+    Key(const uchar *key, uint8 len);
+-+    Key(const Key &rhs);
+-+
+-+    /**
+-+     * Dtor
+-+     */
+-+    ~Key();
+-+
+-+    /**
+-+     * Get the string representation of key
+-+     */
+-+    std::string ToString() const;
+-+};
+-+
+- }
+- 
+- #endif /// BILLJEFF_BTREE_COMMON_H
+-diff --git a/XiaoDB/test/BPlusTreeTest.cpp b/XiaoDB/test/BPlusTreeTest.cpp
+-index 65ffbb1..674bb74 100644
+---- a/XiaoDB/test/BPlusTreeTest.cpp
+-+++ b/XiaoDB/test/BPlusTreeTest.cpp
+-@@ -881,4 +881,52 @@ bool RemoveRollbackTest(void)
+- }
+- ADD_CASE(RemoveRollbackTest);
+- 
+-+bool SearchBSTTest(void)
+-+{
+-+    BPlusTree bpt;
+-+    BSTNode *root = NULL;
+-+    BSTNode *node1Ptr = new BSTNode;
+-+    node1Ptr->mValue = new unsigned char[3];
+-+    node1Ptr->mValLen = 3;
+-+    memcpy(node1Ptr->mValue, "abc", 3);
+-+    bool dupFlag = false;
+-+    bpt.BSTInsertNode(root, node1Ptr, NULL, dupFlag);
+-+
+-+    BSTNode *node2Ptr = new BSTNode;
+-+    node2Ptr->mValue = new unsigned char[2];
+-+    node2Ptr->mValLen = 2;
+-+    memcpy(node2Ptr->mValue, "bc", 2);
+-+    dupFlag = false;
+-+    bpt.BSTInsertNode(root, node2Ptr, NULL, dupFlag);
+-+
+-+    BSTNode *node3Ptr = new BSTNode;
+-+    node3Ptr->mValue = new unsigned char[3];
+-+    node3Ptr->mValLen = 3;
+-+    memcpy(node3Ptr->mValue, "aaa", 3);
+-+    dupFlag = false;
+-+    bpt.BSTInsertNode(root, node3Ptr, NULL, dupFlag);
+-+
+-+    {
+-+        Key searchKey(node3Ptr);
+-+        BTreeNode tmpNode;
+-+        tmpNode.mRoot = root;
+-+        BSTNode *ret = bpt.SearchBST(&tmpNode, searchKey);
+-+        TEST_TRUE(ret != NULL);
+-+        TEST_EQUAL(Key(ret).ToString(), "aaa");
+-+    }
+-+
+-+    /*
+-+    {
+-+        uchar key[] = "ccc";
+-+        Key searchKey(key, 3);
+-+        BTreeNode tmpNode;
+-+        tmpNode.mRoot = root;
+-+        BSTNode *ret = bpt.SearchBST(&tmpNode, searchKey);
+-+        TEST_TRUE(ret == NULL);
+-+    }
+-+    */
+-+    return true;
+-+}
+-+ADD_CASE(SearchBSTTest);
+-+
+- REGISTER_UT(BPlusTreeTest);
 -diff --git a/diff b/diff
--index 9dbf592..c0b774a 100644
+-index dc96215..fcb4701 100644
 ---- a/diff
 -+++ b/diff
--@@ -1,338 +0,0 @@
---diff --git a/Log b/Log
---index 65ee0ba..c322123 100644
------ a/Log
---+++ b/Log
---@@ -16,6 +16,8 @@ Jan/15/2011
--- Jan/16/2011
--- 1. Update XiaoDB, WriteBTreeNode and BTree head to disk file with UTs.
--- 2. TODO - UT mentioned above not ALL PASS.
---+Jan/18/2011
---+1. Fix UT failure for commit change to disk file.
--- 
--- TODO:
--- 1. Modify UT to test all key number in BPTree.
+-@@ -1,518 +0,0 @@
 --diff --git a/XiaoDB/BTree.cpp b/XiaoDB/BTree.cpp
---index 65c96c5..8d91a4e 100644
+--index d13ac3c..65136ee 100644
 ----- a/XiaoDB/BTree.cpp
 --+++ b/XiaoDB/BTree.cpp
---@@ -457,6 +457,8 @@ bool BPlusTree::CheckCompatibility(const string &version,
---  */
--- bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
--- {
---+    LOG_CALL();
---+    LOG_DEBUG("BTreeNode offset: " << n);
---     long long startPos = n*BLOCK_SIZE;
---     /// TODO - Imporve performance, do not use string, allocate 8192 bytes
---     /// previously instead by string's expanding(re-allocation).
---@@ -476,7 +478,8 @@ bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
---         LOG_ERROR("Invalid element number: " << elementNum);
---         return false;
---     }
----
---+    LOG_DEBUG("Keys in BTreeNode: " << elementNum);
---+    
---     /// Get is leaf or not leaf flag.
---     uint64_t leafFlag;
---     {
---@@ -510,6 +513,7 @@ bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
---             uint32_t keyLen = 0;
---             keyLen =
---                 uint32_t(Binary2Uint64(nodeData.substr(pos, NUMBER_LEN).c_str()));
---+            LOG_DEBUG("Key length: " << keyLen);
---             if (keyLen > MAX_KEY_LEN)
---             {
---                 LOG_ERROR("Key length exceeds MAX KEY LEN");
---@@ -528,6 +532,7 @@ bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
---             memcpy(tmpPtr, nodeData.c_str()+pos, keyLen);
---             bstNodePtr->mValue = tmpPtr;
---             pos += keyLen;
---+            LOG_DEBUG("key: " << Key(tmpPtr, keyLen).ToString());
---             /// get pointer
---             bstNodePtr->mPointer =
---                 Binary2Uint64(nodeData.substr(pos, POINTER_LEN));
---@@ -557,6 +562,8 @@ bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
---     /// update mBitMap
---     UpdateBitMap(n, true);
+--@@ -696,22 +696,9 @@ bool BPlusTree::RecursiveInsert(BSTNode *toInsertNode, BTreeNode *currNodePtr,
+--     if (currNodePtr->mLeafFlag) {
+--         LOG_DEBUG("Insert key in leaf");
+--         if (currNodePtr->mKeyNum < MAX_ELEMENT_NUMBER) {
+---            /*
+---            BSTNode *ptr = new (nothrow) BSTNode;
+---            if (NULL == ptr) {
+---                LOG_FATAL("Memory allocation error");
+---                return false;
+---            }
+---            ptr->mValLen = keyLen;
+---            ptr->mValue = new (nothrow) uchar[keyLen];
+---            if (NULL == ptr->mValue) {
+---                LOG_FATAL("Memory allocation error");
+---                return false;
+---            }
+---            memcpy(ptr->mValue, key, keyLen);
+---            */
+--             /// copy and put the old node into 
+---            /// TODO
+--+            if (!ModifiedBTreeNodeBackup(currNodePtr))
+--+                return false;
+--             if (!BSTInsertNode(currNodePtr->mRoot, toInsertNode, currNodePtr)) {
+--                 LOG_ERROR("Key insert error");
+--                 return false;
+--@@ -864,6 +851,9 @@ bool BPlusTree::RecursiveInsert(BSTNode *toInsertNode, BTreeNode *currNodePtr,
+--         hasNewKey = false;
+--         if (currNodePtr->mKeyNum < MAX_ELEMENT_NUMBER) {
+--             LOG_DEBUG("Insert new key into non-leaf node");
+--+            /// make a backup for rollback
+--+            if (!ModifiedBTreeNodeBackup(currNodePtr))
+--+                return false;
+--             bool mpFlag = false;
+--             if (!BTreeNodeInsertSplittedKey(currNodePtr, newKey,
+--                                             ptrInfo, mpFlag))
+--@@ -904,6 +894,10 @@ BSTNode* BPlusTree::SplitBTreeNode(BTreeNode *node, BSTNode *bstNodePtr,
+--     if (NULL == bstNodePtr)
+--         return NULL;
 -- 
---+    LOG_DEBUG("GetNode, dump BTreeNode: " << nodePtr->Dump());
+--+    /// make a copy of to-be splitted nodes
+--+    if (!ModifiedBTreeNodeBackup(node))
+--+        return false;
+--+    
+--     BSTNode *retPtr = NULL;
+-- 
+--     bool cacheInsertErr, copyBSTNodeErr;
+--@@ -1092,6 +1086,9 @@ BSTNode* BPlusTree::SplitBTreeNode(BTreeNode *node, BSTNode *bstNodePtr,
+--     ptrInfo.second = newNodePtr->mOffsetID;
+--     LOG_DEBUG("New node offset(in bitmap): " << newNodePtr->mOffsetID);
+-- 
+--+    /// record the new generated node into set for rollback
+--+    mNewBTreeNodeSet.insert(newNodePtr->mOffsetID);
 --+
---     return true;
+--     return retPtr;
 -- }
 -- 
---@@ -1438,7 +1445,7 @@ bool BPlusTree::WriteBTreeHead()
---     str += s;
---     /// write root node offset
---     s = UInt2Binary(mRootOffset, mEndian);
----    LOG_DEBUG("root offset: " << s);
---+    LOG_DEBUG("root offset: " << mRootOffset << "->" << s);
---     str += s;
---     /// fill unused bytes with '\0'
---     for (size_t i = str.length(); i < BLOCK_SIZE; ++i)
---@@ -1461,6 +1468,7 @@ bool BPlusTree::BTreeNode2Bin(BTreeNode *ptr, string &str)
---     str.reserve(BLOCK_SIZE);
---     /// write # of keys
---     string s = UInt2Binary(ptr->mKeyNum, mEndian);
---+    LOG_DEBUG("key num: " << s);
---     str += s;
---     /// write is leaf flag
---     int32 leaf = ptr->mLeafFlag;
---@@ -1479,7 +1487,7 @@ bool BPlusTree::BTreeNode2Bin(BTreeNode *ptr, string &str)
---         str += s;
---         /// write key
---         for (uint32 j = 0; j < key.mKeyLen; ++j)
----            s += key.mKey[j];
---+            str += key.mKey[j];
---         /// write offset
---         s = UInt2Binary(vals[i], mEndian);
---         str += s;
---@@ -1499,6 +1507,7 @@ bool BPlusTree::BTreeNode2Bin(BTreeNode *ptr, string &str)
--- /// TODO - UT
--- bool BPlusTree::Commit()
--- {
+--@@ -1612,3 +1609,53 @@ bool BPlusTree::Commit()
+--     }
+--     return true;
+-- }
+--+
+--+bool BPlusTree::ModifiedBTreeNodeBackup(BTreeNode *ptr)
+--+{
 --+    LOG_CALL();
---     /// update head part
---     mFileHandler.Seek(0);
---     if (!WriteBTreeHead()) {
+--+    BTreeNode *copiedPtr = NULL;
+--+    if (!(CopyBTreeNode(copiedPtr, ptr))) {
+--+        LOG_ERROR("Copy BTreeNode Error!");
+--+        return false;
+--+    }
+--+    mModifiedBTreeNodeSet.AddNode(copiedPtr, copiedPtr->mOffsetID);
+--+    return true;
+--+}
+--+
+--+bool BPlusTree::RemovedBTreeNodeBackup(BTreeNode *ptr)
+--+{
+--+    LOG_CALL();
+--+    BTreeNode *copiedPtr = NULL;
+--+    if (!(CopyBTreeNode(copiedPtr, ptr))) {
+--+        LOG_ERROR("Copy BTreeNode Error!");
+--+        return false;
+--+    }
+--+    mRemovedBTreeNodeSet.AddNode(copiedPtr, copiedPtr->mOffsetID);
+--+    return true;
+--+}
+--+
+--+void BPlusTree::ClearMinorRollbackCache()
+--+{
+--+    /// clear new generated node set
+--+    mNewBTreeNodeSet.clear();
+--+    /// for mModifiedBTreeNodeSet and mRemovedBTreeNodeSet, if rollback happened,
+--+    /// then related rollback action will clear these two sets.
+--+    vector<PointerType> s;
+--+    s = mModifiedBTreeNodeSet.GetAllCachedNodes();
+--+    for (size_t i = 0; i < s.size(); ++i) {
+--+        BTreeNode *ptr = mModifiedBTreeNodeSet.GetNode(s[i]);
+--+        delete ptr;
+--+    }
+--+
+--+    s = mRemovedBTreeNodeSet.GetAllCachedNodes();
+--+    for (size_t i = 0; i < s.size(); ++i) {
+--+        BTreeNode *ptr = mRemovedBTreeNodeSet.GetNode(s[i]);
+--+        delete ptr;
+--+    }
+--+}
+--+
+--+/// TODO - UT
+--+bool InsertRollback()
+--+{
+--+    
+--+}
+--diff --git a/XiaoDB/BTree.h b/XiaoDB/BTree.h
+--index d30aaa9..cafcd1d 100644
+----- a/XiaoDB/BTree.h
+--+++ b/XiaoDB/BTree.h
+--@@ -11,6 +11,7 @@
+-- 
+-- #include <string>
+-- #include <vector>
+--+#include <set>
+-- 
+-- #include "FileUtil.h"
+-- #include "CommonInclude.h"
+--@@ -246,6 +247,19 @@ private:
+--     bool CopyBTreeNode(BTreeNode* &destPtr, BTreeNode *ptr);
+-- 
+--     /**
+--+     * Copy the modified BTreeNode and insert into mModifiedBTreeNodeSet.
+--+     * @param ptr Original BTreeNode pointer.
+--+     * @return True for success, false for failure.
+--+     */
+--+    bool ModifiedBTreeNodeBackup(BTreeNode *ptr);
+--+
+--+    /**
+--+     * Just link ModifiedBTreeNodeBackup, this function
+--+     * copys the removde BTreeNode and insert into mRemovedBTreeNodeSet.
+--+     */
+--+    bool RemovedBTreeNodeBackup(BTreeNode *ptr);
+--+
+--+    /**
+--      * Insert new key into BST, and get info about the inserted key is max/min
+--      * key in BST, and its subsequent key.
+--      * @param rootPtr Pointer to BST.
+--@@ -286,9 +300,17 @@ private:
+--      * into mModifiedBTreeNodeSet;
+--      * For BTree Remove failure, removed nodes will be inserted into 
+--      * mRemovedBTreeNodeSet.
+--+     * InsertRollback can be used to one time insert/update rollback.
+--+     * RemoveRollback can be used to one time remove failure rollback.
+--+     */
+--+    bool InsertRollback();
+--+    bool RemoveRollback();
+--+
+--+    /**
+--+     * Clear all contents in minor change cache(mModifiedBTreeNodeSet,
+--+     * mRemovedBTreeNodeSet, mNewBTreeNodeSet) which are used by minor rollback.
+--      */
+---    /// TODO
+---    bool MinorRollback();
+--+    void ClearMinorRollbackCache();
+-- 
+--     /**
+--      * Dump all keys and values in BTree.
+--@@ -366,7 +388,7 @@ private:
+--     /// see the function instruction for @MinorRollback.
+--     TreeNodeCacheManager mModifiedBTreeNodeSet;
+--     TreeNodeCacheManager mRemovedBTreeNodeSet;
+---    std::vector<PointerType> mNewBTreeNodeSet;
+--+    std::set<PointerType> mNewBTreeNodeSet;
+-- 
+--     /// During the key insert, if to-insert key is in BPTree, then this flag will
+--     /// be set to true, otherwise to false;
 --diff --git a/diff b/diff
---index 44bce42..e69de29 100644
+--index 9dbf592..c0b774a 100644
 ----- a/diff
 --+++ b/diff
---@@ -1,238 +0,0 @@
----Index: Log
----===================================================================
------- Log	（版本 126）
----+++ Log	（工作副本）
----@@ -8,6 +8,10 @@
---- Jan/12/2011
---- 1. Fix UT failure for BTree Insert related codes.
---- 2. Add most used node cache in BTreeNodeCacheManager, UT not ready.
----+Jan/14/2011
----+1. Fix UT failure in HashTable.
----+Jan/15/2011
----+1. Update latest used node in BTreeNodeCacheManager and its UT.
---- 
+--@@ -1,338 +0,0 @@
+---diff --git a/Log b/Log
+---index 65ee0ba..c322123 100644
+------ a/Log
+---+++ b/Log
+---@@ -16,6 +16,8 @@ Jan/15/2011
+--- Jan/16/2011
+--- 1. Update XiaoDB, WriteBTreeNode and BTree head to disk file with UTs.
+--- 2. TODO - UT mentioned above not ALL PASS.
+---+Jan/18/2011
+---+1. Fix UT failure for commit change to disk file.
 --- 
 --- TODO:
----Index: XiaoDB/test/TreeNodeCacheManagerTest.cpp
----===================================================================
------- XiaoDB/test/TreeNodeCacheManagerTest.cpp	（版本 123）
----+++ XiaoDB/test/TreeNodeCacheManagerTest.cpp	（工作副本）
----@@ -1,6 +1,8 @@
---- #include "TreeNodeCacheManager.h"
---- #include "ut_tools/ut_tool.h"
---- 
----+#include <algorithm>
----+
---- using namespace std;
---- using namespace CLPIM;
---- using namespace XiaoDB;
----@@ -93,5 +95,28 @@
----     return true;
---- }
---- ADD_CASE(GetNodeTest);
-----   
----+
----+bool GetToFlushNodesTest(void)
----+{
----+    TreeNodeCacheManager c;
----+    BTreeNode n1, n2, n3, n4, n5, n6, n7;
----+    c.AddNode(&n1, 1);
----+    c.AddNode(&n2, 2);
----+    c.AddNode(&n3, 3);
----+    c.AddNode(&n4, 4);
----+    c.AddNode(&n5, 5);
----+    c.AddNode(&n6, 6);
----+    c.AddNode(&n7, 7);
----+
----+    vector<PointerType> ret = c.GetToFlushNodes();
----+    sort(ret.begin(), ret.end());
----+
----+    TEST_EQUAL(ret.size(), 2);
----+    TEST_EQUAL(ret[0], 1);
----+    TEST_EQUAL(ret[1], 2);    
----+            
----+    return true;
----+}
----+ADD_CASE(GetToFlushNodesTest);
----+
---- REGISTER_UT(TreeNodeCacheManagerUT);
----Index: XiaoDB/BTree.cpp
----===================================================================
------- XiaoDB/BTree.cpp	（版本 126）
----+++ XiaoDB/BTree.cpp	（工作副本）
----@@ -19,7 +19,11 @@
---- /// Each B+ tree node takes up 8K bytes in B+ tree file.
---- #define BLOCK_SIZE         8192
---- /// Maximum key number in each node
----+#ifdef _DEBUG
---- #define MAX_ELEMENT_NUMBER 5
----+#else
----+#define MAX_ELEMENT_NUMBER 80
----+#endif
---- /// Maximum key length
---- #define MAX_KEY_LEN        80
---- /// Maximum height of B+ tree
----@@ -260,7 +264,7 @@
----         ++mCachedNodeNum;
----         if (mCachedNodeNum > MAX_CACHED_NODE_NUM) {
----             /// TODO
-----            FlushCache();
----+            /// FlushCache();
----         }
----     }
---- 
----@@ -1245,7 +1249,7 @@
----     if (0 == cmpRet) {
----         LOG_FATAL("Duplicated key founded, No duplicate key is allowed" <<
----                   " in non leaf node");
-----        delete toinsertKey;
----+        delete toInsertKey;
----         return;
----     }
----     else if (1 == cmpRet) {
----Index: XiaoDB/TreeNodeCacheManager.cpp
----===================================================================
------- XiaoDB/TreeNodeCacheManager.cpp	（版本 126）
----+++ XiaoDB/TreeNodeCacheManager.cpp	（工作副本）
----@@ -51,9 +51,26 @@
---- }
---- 
---- /// TODO -UT
-----BTreeNode* TreeNodeCacheManager::GetToFlushNode()
----+vector<PointerType> TreeNodeCacheManager::GetToFlushNodes()
---- {
-----    /// TODO
----+    vector<PointerType> allKeys;
----+    vector<PointerType> retKeys;
----+    mCacher.GetAllKeys(allKeys);
----+
----+    typeof(allKeys.begin()) iter;
----+    for (iter = allKeys.begin(); iter != allKeys.end(); ++iter) {
----+        bool find = false;
----+        typeof(mLUNCache.begin()) it = mLUNCache.begin();
----+        for (; it != mLUNCache.end(); ++it) {
----+            if (it->id == *iter) {
----+                find = true;
----+                break;
----+            }
----+        }
----+        if (!find)
----+            retKeys.push_back(*iter);
----+    }
----+    return retKeys;
---- }
---- 
---- /// TOOD -UT
----Index: XiaoDB/TreeNodeCacheManager.h
----===================================================================
------- XiaoDB/TreeNodeCacheManager.h	（版本 126）
----+++ XiaoDB/TreeNodeCacheManager.h	（工作副本）
----@@ -4,6 +4,7 @@
----  * 
----  * Revision History:
----  *     Nov/19/2010: Init
----+ *     Jan/14/2010: Add codes to keep latest used nodes.
+--- 1. Modify UT to test all key number in BPTree.
+---diff --git a/XiaoDB/BTree.cpp b/XiaoDB/BTree.cpp
+---index 65c96c5..8d91a4e 100644
+------ a/XiaoDB/BTree.cpp
+---+++ b/XiaoDB/BTree.cpp
+---@@ -457,6 +457,8 @@ bool BPlusTree::CheckCompatibility(const string &version,
 ---  */
---- 
---- #ifndef BILLJEFF_TREE_NODE_CACHE_MANAGER_H
----@@ -14,6 +15,7 @@
---- #include "HashTable.hpp"
---- 
---- #include <list>
----+#include <vector>
---- 
---- namespace XiaoDB
+--- bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
 --- {
----@@ -26,7 +28,11 @@
----         BTreeNode *ptr;
----     };
+---+    LOG_CALL();
+---+    LOG_DEBUG("BTreeNode offset: " << n);
+---     long long startPos = n*BLOCK_SIZE;
+---     /// TODO - Imporve performance, do not use string, allocate 8192 bytes
+---     /// previously instead by string's expanding(re-allocation).
+---@@ -476,7 +478,8 @@ bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
+---         LOG_ERROR("Invalid element number: " << elementNum);
+---         return false;
+---     }
+----
+---+    LOG_DEBUG("Keys in BTreeNode: " << elementNum);
+---+    
+---     /// Get is leaf or not leaf flag.
+---     uint64_t leafFlag;
+---     {
+---@@ -510,6 +513,7 @@ bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
+---             uint32_t keyLen = 0;
+---             keyLen =
+---                 uint32_t(Binary2Uint64(nodeData.substr(pos, NUMBER_LEN).c_str()));
+---+            LOG_DEBUG("Key length: " << keyLen);
+---             if (keyLen > MAX_KEY_LEN)
+---             {
+---                 LOG_ERROR("Key length exceeds MAX KEY LEN");
+---@@ -528,6 +532,7 @@ bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
+---             memcpy(tmpPtr, nodeData.c_str()+pos, keyLen);
+---             bstNodePtr->mValue = tmpPtr;
+---             pos += keyLen;
+---+            LOG_DEBUG("key: " << Key(tmpPtr, keyLen).ToString());
+---             /// get pointer
+---             bstNodePtr->mPointer =
+---                 Binary2Uint64(nodeData.substr(pos, POINTER_LEN));
+---@@ -557,6 +562,8 @@ bool BPlusTree::GetNode(BTreeNode *nodePtr, uint64 n)
+---     /// update mBitMap
+---     UpdateBitMap(n, true);
 --- 
-----    const uint32 MaxLUNCacheSize = 500;
----+#ifdef _DEBUG
----+    static const uint32 MaxLUNCacheSize = 5;
----+#else
----+    static const uint32 MaxLUNCacheSize = 500;
----+#endif
----     
---- public:
----     /**
----@@ -64,9 +70,10 @@
----      * Get to be flushed node from cache. To flush node is old node
----      * which is not in TreeNodeCacheManager's inner latest used node
----      * cache.
-----     * @return Return pointer to to-flush node if existed, otherwise return NULL.
----+     * @return Return a vector of pointer to to-flush node
----+     *         if existed, otherwise return NULL.
----      */
-----    BTreeNode* GetToFlushNode();
----+    std::vector<PointerType> GetToFlushNodes();
---- 
---- protected:
----     /**
----Index: common/test/HashTableTest.cpp
----===================================================================
------- common/test/HashTableTest.cpp	（版本 123）
----+++ common/test/HashTableTest.cpp	（工作副本）
----@@ -3,6 +3,7 @@
---- #include "ut_tools/ut_tool.h"
---- 
---- #include <iostream>
----+#include <algorithm>
---- 
---- using namespace std;
---- 
----@@ -90,6 +91,16 @@
----     re = h.CheckKey(17, val);
----     TEST_EQUAL(re, false);
---- 
----+    string destStr = "123456766";
----+    vector<int32> ret;
----+    h.GetAllKeys(ret);
----+    sort(ret.begin(), ret.end());
----+    stringstream ss;
----+    for (size_t i = 0; i < ret.size(); ++i) {
----+        ss << ret[i];
----+    }
----+    TEST_EQUAL(ss.str(), destStr);
+---+    LOG_DEBUG("GetNode, dump BTreeNode: " << nodePtr->Dump());
 ---+
 ---     return true;
----     
 --- }
----Index: common/HashTable.hpp
----===================================================================
------- common/HashTable.hpp	（版本 123）
----+++ common/HashTable.hpp	（工作副本）
----@@ -12,6 +12,7 @@
---- #include <new>
---- #include <cmath>
---- #include <stdint.h>
----+#include <vector>
 --- 
---- #include "Log.h"
---- #include "CommonInclude.h"
----@@ -157,8 +158,24 @@
----             prevPtr = ptr;
----             ptr = ptr->nextPtr;
----         }
-----        
----     }
----+
----+    /**
----+     * Get all keys from hash table
----+     */
----+    void GetAllKeys(std::vector<KeyType> &ret)
----+    {
----+        ret.clear();
----+        ret.reserve(mItemNum);
----+        LOG_DEBUG("ItemNum: " << mItemNum << ", TableSize: " << mTableSize);
----+        for (uint32 i = 0; i < mTableSize; ++i) {
----+            Node *nodePtr = mTablePtr[i];
----+            while (nodePtr) {
----+                ret.push_back(nodePtr->key);
----+                nodePtr = nodePtr->nextPtr;
----+            }
----+        }
----+    }
----     
---- private:
----     /**
+---@@ -1438,7 +1445,7 @@ bool BPlusTree::WriteBTreeHead()
+---     str += s;
+---     /// write root node offset
+---     s = UInt2Binary(mRootOffset, mEndian);
+----    LOG_DEBUG("root offset: " << s);
+---+    LOG_DEBUG("root offset: " << mRootOffset << "->" << s);
+---     str += s;
+---     /// fill unused bytes with '\0'
+---     for (size_t i = str.length(); i < BLOCK_SIZE; ++i)
+---@@ -1461,6 +1468,7 @@ bool BPlusTree::BTreeNode2Bin(BTreeNode *ptr, string &str)
+---     str.reserve(BLOCK_SIZE);
+---     /// write # of keys
+---     string s = UInt2Binary(ptr->mKeyNum, mEndian);
+---+    LOG_DEBUG("key num: " << s);
+---     str += s;
+---     /// write is leaf flag
+---     int32 leaf = ptr->mLeafFlag;
+---@@ -1479,7 +1487,7 @@ bool BPlusTree::BTreeNode2Bin(BTreeNode *ptr, string &str)
+---         str += s;
+---         /// write key
+---         for (uint32 j = 0; j < key.mKeyLen; ++j)
+----            s += key.mKey[j];
+---+            str += key.mKey[j];
+---         /// write offset
+---         s = UInt2Binary(vals[i], mEndian);
+---         str += s;
+---@@ -1499,6 +1507,7 @@ bool BPlusTree::BTreeNode2Bin(BTreeNode *ptr, string &str)
+--- /// TODO - UT
+--- bool BPlusTree::Commit()
+--- {
+---+    LOG_CALL();
+---     /// update head part
+---     mFileHandler.Seek(0);
+---     if (!WriteBTreeHead()) {
+---diff --git a/diff b/diff
+---index 44bce42..e69de29 100644
+------ a/diff
+---+++ b/diff
+---@@ -1,238 +0,0 @@
+----Index: Log
+----===================================================================
+------- Log	（版本 126）
+----+++ Log	（工作副本）
+----@@ -8,6 +8,10 @@
+---- Jan/12/2011
+---- 1. Fix UT failure for BTree Insert related codes.
+---- 2. Add most used node cache in BTreeNodeCacheManager, UT not ready.
+----+Jan/14/2011
+----+1. Fix UT failure in HashTable.
+----+Jan/15/2011
+----+1. Update latest used node in BTreeNodeCacheManager and its UT.
+---- 
+---- 
+---- TODO:
+----Index: XiaoDB/test/TreeNodeCacheManagerTest.cpp
+----===================================================================
+------- XiaoDB/test/TreeNodeCacheManagerTest.cpp	（版本 123）
+----+++ XiaoDB/test/TreeNodeCacheManagerTest.cpp	（工作副本）
+----@@ -1,6 +1,8 @@
+---- #include "TreeNodeCacheManager.h"
+---- #include "ut_tools/ut_tool.h"
+---- 
+----+#include <algorithm>
+----+
+---- using namespace std;
+---- using namespace CLPIM;
+---- using namespace XiaoDB;
+----@@ -93,5 +95,28 @@
+----     return true;
+---- }
+---- ADD_CASE(GetNodeTest);
+-----   
+----+
+----+bool GetToFlushNodesTest(void)
+----+{
+----+    TreeNodeCacheManager c;
+----+    BTreeNode n1, n2, n3, n4, n5, n6, n7;
+----+    c.AddNode(&n1, 1);
+----+    c.AddNode(&n2, 2);
+----+    c.AddNode(&n3, 3);
+----+    c.AddNode(&n4, 4);
+----+    c.AddNode(&n5, 5);
+----+    c.AddNode(&n6, 6);
+----+    c.AddNode(&n7, 7);
+----+
+----+    vector<PointerType> ret = c.GetToFlushNodes();
+----+    sort(ret.begin(), ret.end());
+----+
+----+    TEST_EQUAL(ret.size(), 2);
+----+    TEST_EQUAL(ret[0], 1);
+----+    TEST_EQUAL(ret[1], 2);    
+----+            
+----+    return true;
+----+}
+----+ADD_CASE(GetToFlushNodesTest);
+----+
+---- REGISTER_UT(TreeNodeCacheManagerUT);
+----Index: XiaoDB/BTree.cpp
+----===================================================================
+------- XiaoDB/BTree.cpp	（版本 126）
+----+++ XiaoDB/BTree.cpp	（工作副本）
+----@@ -19,7 +19,11 @@
+---- /// Each B+ tree node takes up 8K bytes in B+ tree file.
+---- #define BLOCK_SIZE         8192
+---- /// Maximum key number in each node
+----+#ifdef _DEBUG
+---- #define MAX_ELEMENT_NUMBER 5
+----+#else
+----+#define MAX_ELEMENT_NUMBER 80
+----+#endif
+---- /// Maximum key length
+---- #define MAX_KEY_LEN        80
+---- /// Maximum height of B+ tree
+----@@ -260,7 +264,7 @@
+----         ++mCachedNodeNum;
+----         if (mCachedNodeNum > MAX_CACHED_NODE_NUM) {
+----             /// TODO
+-----            FlushCache();
+----+            /// FlushCache();
+----         }
+----     }
+---- 
+----@@ -1245,7 +1249,7 @@
+----     if (0 == cmpRet) {
+----         LOG_FATAL("Duplicated key founded, No duplicate key is allowed" <<
+----                   " in non leaf node");
+-----        delete toinsertKey;
+----+        delete toInsertKey;
+----         return;
+----     }
+----     else if (1 == cmpRet) {
+----Index: XiaoDB/TreeNodeCacheManager.cpp
+----===================================================================
+------- XiaoDB/TreeNodeCacheManager.cpp	（版本 126）
+----+++ XiaoDB/TreeNodeCacheManager.cpp	（工作副本）
+----@@ -51,9 +51,26 @@
+---- }
+---- 
+---- /// TODO -UT
+-----BTreeNode* TreeNodeCacheManager::GetToFlushNode()
+----+vector<PointerType> TreeNodeCacheManager::GetToFlushNodes()
+---- {
+-----    /// TODO
+----+    vector<PointerType> allKeys;
+----+    vector<PointerType> retKeys;
+----+    mCacher.GetAllKeys(allKeys);
+----+
+----+    typeof(allKeys.begin()) iter;
+----+    for (iter = allKeys.begin(); iter != allKeys.end(); ++iter) {
+----+        bool find = false;
+----+        typeof(mLUNCache.begin()) it = mLUNCache.begin();
+----+        for (; it != mLUNCache.end(); ++it) {
+----+            if (it->id == *iter) {
+----+                find = true;
+----+                break;
+----+            }
+----+        }
+----+        if (!find)
+----+            retKeys.push_back(*iter);
+----+    }
+----+    return retKeys;
+---- }
+---- 
+---- /// TOOD -UT
+----Index: XiaoDB/TreeNodeCacheManager.h
+----===================================================================
+------- XiaoDB/TreeNodeCacheManager.h	（版本 126）
+----+++ XiaoDB/TreeNodeCacheManager.h	（工作副本）
+----@@ -4,6 +4,7 @@
+----  * 
+----  * Revision History:
+----  *     Nov/19/2010: Init
+----+ *     Jan/14/2010: Add codes to keep latest used nodes.
+----  */
+---- 
+---- #ifndef BILLJEFF_TREE_NODE_CACHE_MANAGER_H
+----@@ -14,6 +15,7 @@
+---- #include "HashTable.hpp"
+---- 
+---- #include <list>
+----+#include <vector>
+---- 
+---- namespace XiaoDB
+---- {
+----@@ -26,7 +28,11 @@
+----         BTreeNode *ptr;
+----     };
+---- 
+-----    const uint32 MaxLUNCacheSize = 500;
+----+#ifdef _DEBUG
+----+    static const uint32 MaxLUNCacheSize = 5;
+----+#else
+----+    static const uint32 MaxLUNCacheSize = 500;
+----+#endif
+----     
+---- public:
+----     /**
+----@@ -64,9 +70,10 @@
+----      * Get to be flushed node from cache. To flush node is old node
+----      * which is not in TreeNodeCacheManager's inner latest used node
+----      * cache.
+-----     * @return Return pointer to to-flush node if existed, otherwise return NULL.
+----+     * @return Return a vector of pointer to to-flush node
+----+     *         if existed, otherwise return NULL.
+----      */
+-----    BTreeNode* GetToFlushNode();
+----+    std::vector<PointerType> GetToFlushNodes();
+---- 
+---- protected:
+----     /**
+----Index: common/test/HashTableTest.cpp
+----===================================================================
+------- common/test/HashTableTest.cpp	（版本 123）
+----+++ common/test/HashTableTest.cpp	（工作副本）
+----@@ -3,6 +3,7 @@
+---- #include "ut_tools/ut_tool.h"
+---- 
+---- #include <iostream>
+----+#include <algorithm>
+---- 
+---- using namespace std;
+---- 
+----@@ -90,6 +91,16 @@
+----     re = h.CheckKey(17, val);
+----     TEST_EQUAL(re, false);
+---- 
+----+    string destStr = "123456766";
+----+    vector<int32> ret;
+----+    h.GetAllKeys(ret);
+----+    sort(ret.begin(), ret.end());
+----+    stringstream ss;
+----+    for (size_t i = 0; i < ret.size(); ++i) {
+----+        ss << ret[i];
+----+    }
+----+    TEST_EQUAL(ss.str(), destStr);
+----+
+----     return true;
+----     
+---- }
+----Index: common/HashTable.hpp
+----===================================================================
+------- common/HashTable.hpp	（版本 123）
+----+++ common/HashTable.hpp	（工作副本）
+----@@ -12,6 +12,7 @@
+---- #include <new>
+---- #include <cmath>
+---- #include <stdint.h>
+----+#include <vector>
+---- 
+---- #include "Log.h"
+---- #include "CommonInclude.h"
+----@@ -157,8 +158,24 @@
+----             prevPtr = ptr;
+----             ptr = ptr->nextPtr;
+----         }
+-----        
+----     }
+----+
+----+    /**
+----+     * Get all keys from hash table
+----+     */
+----+    void GetAllKeys(std::vector<KeyType> &ret)
+----+    {
+----+        ret.clear();
+----+        ret.reserve(mItemNum);
+----+        LOG_DEBUG("ItemNum: " << mItemNum << ", TableSize: " << mTableSize);
+----+        for (uint32 i = 0; i < mTableSize; ++i) {
+----+            Node *nodePtr = mTablePtr[i];
+----+            while (nodePtr) {
+----+                ret.push_back(nodePtr->key);
+----+                nodePtr = nodePtr->nextPtr;
+----+            }
+----+        }
+----+    }
+----     
+---- private:
+----     /**
